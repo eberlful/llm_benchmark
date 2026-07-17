@@ -118,7 +118,7 @@ def train(
 @app.command()
 def eval(
     checkpoint_path: Path = typer.Option(..., "--checkpoint-path", "-c", help="Path to the saved checkpoint.", exists=True, file_okay=True, dir_okay=False, readable=True),
-    data_dir: str = typer.Option("data/shakespeare", "--data-dir", "-d", help="Directory of dataset files."),
+    data_dir: Path = typer.Option(Path("data/shakespeare"), "--data-dir", "-d", help="Directory of dataset files.", exists=True, file_okay=False, dir_okay=True, readable=True),
     batch_size: int = typer.Option(12, "--batch-size", "-b", help="Batch size for evaluation."),
     eval_iters: int = typer.Option(200, "--eval-iters", "-e", help="Number of evaluation iterations to average."),
     device: str = typer.Option("auto", "--device", "-dev", help="Execution device (e.g. cpu, cuda)."),
@@ -155,7 +155,7 @@ def eval(
     model.eval()
 
     console.print(f"📊 Instantiating ShakespeareDataset from {data_dir}...")
-    dataset = ShakespeareDataset(data_dir=data_dir)
+    dataset = ShakespeareDataset(data_dir=str(data_dir))
 
     console.print("🔄 Running evaluation...")
     losses = torch.zeros(eval_iters)
