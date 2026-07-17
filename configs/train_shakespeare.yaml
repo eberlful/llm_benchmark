@@ -1,0 +1,36 @@
+# Starting Configuration for Training on the Shakespeare Dataset
+
+model:
+  block_size: 256        # Maximum sequence length
+  vocab_size: 50304      # GPT-2 vocabulary size (padded to nearest multiple of 64 for efficiency)
+  n_layer: 6             # Number of transformer block layers
+  n_head: 6              # Number of attention heads
+  n_embd: 384            # Embedding/hidden dimensionality
+  dropout: 0.2           # Dropout rate (0.0 for no dropout)
+  bias: false            # Use bias inside LayerNorms and Linear projections
+
+dataset:
+  data_dir: "data/shakespeare"
+
+optimizer:
+  weight_decay: 0.1
+  learning_rate: 6e-4
+  betas:
+    - 0.9
+    - 0.95
+
+trainer:
+  max_iters: 5000        # Total training steps
+  batch_size: 64         # Batch size per step
+  block_size: 256        # Context length to train on (must match model block_size)
+  device: "auto"         # 'auto' chooses 'cuda' if GPU is available, else 'cpu'
+  dtype: "bfloat16"      # 'bfloat16', 'float16', or 'float32'
+  decay_lr: true         # Enable cosine learning rate decay
+  warmup_iters: 100      # Steps to linearly warm up learning rate
+  lr_decay_iters: 5000   # Should be equal to max_iters
+  min_lr: 6e-5           # Final learning rate after decay
+  grad_clip: 1.0         # Gradient norm clipping value
+  gradient_accumulation_steps: 4
+  eval_interval: 250     # How often to run evaluation splits
+  eval_iters: 100        # Number of batches to average loss over during eval
+  log_interval: 10       # How often to print metrics to terminal/logs
