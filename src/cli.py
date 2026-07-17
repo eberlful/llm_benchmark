@@ -44,6 +44,8 @@ def train(
 
     # 2. Model Config
     model_cfg = config.get("model", {})
+    if "dropout" in model_cfg:
+        model_cfg["dropout"] = float(model_cfg["dropout"])
     gpt_config = GPTConfig(**model_cfg)
     console.print(f"🤖 Initializing GPT model architecture (n_layer={gpt_config.n_layer}, n_head={gpt_config.n_head}, n_embd={gpt_config.n_embd})...")
     model = GPTModel(gpt_config)
@@ -53,10 +55,15 @@ def train(
     
     # Extract optimizer params
     opt_cfg = config.get("optimizer", {})
-    weight_decay = opt_cfg.get("weight_decay", 0.01)
-    lr = learning_rate if learning_rate is not None else opt_cfg.get("learning_rate", 6e-4)
+    weight_decay = float(opt_cfg.get("weight_decay", 0.01))
+    lr = float(learning_rate if learning_rate is not None else opt_cfg.get("learning_rate", 6e-4))
     betas = tuple(opt_cfg.get("betas", [0.9, 0.95]))
     
+    # Cast trainer float configs if present
+    for k in ["learning_rate", "min_lr", "grad_clip"]:
+        if k in trainer_cfg:
+            trainer_cfg[k] = float(trainer_cfg[k])
+
     device = trainer_cfg.pop("device", "cpu")
     if device == "auto":
         device = "cuda" if torch.cuda.is_available() else "cpu"
