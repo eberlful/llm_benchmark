@@ -58,7 +58,7 @@ class Trainer:
 
         self.device_type = 'cuda' if 'cuda' in self.device else 'cpu'
         # Float16 data type will automatically use a GradScaler
-        self.scaler = torch.cuda.amp.GradScaler(enabled=(self.dtype == 'float16'))
+        self.scaler = torch.amp.GradScaler('cuda', enabled=(self.dtype == 'float16'))
         ptdtype = {'float32': torch.float32, 'bfloat16': torch.bfloat16, 'float16': torch.float16}[self.dtype]
         self.ctx = nullcontext() if self.device_type == 'cpu' else torch.amp.autocast(device_type=self.device_type, dtype=ptdtype)
 
