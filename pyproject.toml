@@ -1,5 +1,5 @@
 [project]
-name = "nanogpt"
+name = "llm_benchmark"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
