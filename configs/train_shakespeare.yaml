@@ -21,7 +21,7 @@ optimizer:
 
 trainer:
   max_iters: 5000        # Total training steps
-  batch_size: 64         # Batch size per step
+  batch_size: 32         # Batch size per step
   block_size: 256        # Context length to train on (must match model block_size)
   device: "auto"         # 'auto' chooses 'cuda' if GPU is available, else 'cpu'
   dtype: "bfloat16"      # 'bfloat16', 'float16', or 'float32'
