@@ -65,8 +65,8 @@ def test_cli_flow(dummy_dataset_and_config, tmp_path, monkeypatch):
     # so that the 'runs' directory is created inside the temp test folder.
     monkeypatch.chdir(tmp_path)
     
-    # Run the train command
-    result = runner.invoke(app, ["train", str(config_file), "--steps", "2", "--batch-size", "1"])
+    # Run the train command (5 iterations)
+    result = runner.invoke(app, ["train", str(config_file), "--steps", "5", "--batch-size", "1"])
     assert result.exit_code == 0, f"train command failed: {result.stdout}"
     
     # Assert runs/ folder exists and has at least one run
@@ -76,8 +76,23 @@ def test_cli_flow(dummy_dataset_and_config, tmp_path, monkeypatch):
     assert len(runs) > 0
     
     run_dir = runs_dir / runs[0]
+    
+    # Assert checkpoints exist
     last_ckpt = run_dir / "last_ckpt.pt"
+    best_ckpt = run_dir / "best_ckpt.pt"
     assert last_ckpt.exists()
+    assert best_ckpt.exists()
+    
+    # Assert out.log exists
+    log_file = run_dir / "out.log"
+    assert log_file.exists()
+    assert log_file.stat().st_size > 0
+    
+    # Assert TensorBoard events exist
+    tb_files = [f for f in os.listdir(run_dir) if "tfevents" in f]
+    assert len(tb_files) > 0, "No TensorBoard event files found."
+    for tb_file in tb_files:
+        assert os.path.getsize(run_dir / tb_file) > 0
     
     # Run the eval command
     result_eval = runner.invoke(app, ["eval", "-c", str(last_ckpt), "-d", str(dataset_dir), "-b", "1", "-e", "2"])
