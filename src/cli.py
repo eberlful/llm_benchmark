@@ -9,6 +9,7 @@ import tiktoken
 from rich.console import Console
 
 from src.models.gpt import GPTModel, GPTConfig
+from src.models.pam import PAMConfig, PAMModel
 from src.datasets.shakespeare import ShakespeareDataset
 from src.trainer import Trainer
 from src.callbacks.terminal_logger import TerminalLogger
@@ -43,12 +44,23 @@ def train(
     dataset = ShakespeareDataset(data_dir=data_dir)
 
     # 2. Model Config
-    model_cfg = config.get("model", {})
+    model_cfg = config.get("model", {}).copy()
     if "dropout" in model_cfg:
         model_cfg["dropout"] = float(model_cfg["dropout"])
-    gpt_config = GPTConfig(**model_cfg)
-    console.print(f"🤖 Initializing GPT model architecture (n_layer={gpt_config.n_layer}, n_head={gpt_config.n_head}, n_embd={gpt_config.n_embd})...")
-    model = GPTModel(gpt_config)
+    
+    model_type = model_cfg.pop("type", "gpt")
+    if model_type == "pam":
+        if "block_size" in model_cfg:
+            model_cfg["max_seq_len"] = model_cfg["block_size"]
+        if "n_embd" in model_cfg:
+            model_cfg["dim"] = model_cfg["n_embd"]
+        pam_config = PAMConfig(**model_cfg)
+        console.print(f"🤖 Initializing PAM model architecture (n_layer={pam_config.n_layer}, n_head={pam_config.n_head}, dim={pam_config.dim})...")
+        model = PAMModel(pam_config)
+    else:
+        gpt_config = GPTConfig(**model_cfg)
+        console.print(f"🤖 Initializing GPT model architecture (n_layer={gpt_config.n_layer}, n_head={gpt_config.n_head}, n_embd={gpt_config.n_embd})...")
+        model = GPTModel(gpt_config)
 
     # 3. Trainer & Optimizer configs
     trainer_cfg = config.get("trainer", {}).copy()
@@ -148,8 +160,12 @@ def eval(
         console.print("[bold red]❌ Checkpoint does not contain config metadata.[/bold red]")
         raise typer.Exit(code=1)
 
-    console.print("🤖 Instantiating GPT model...")
-    model = GPTModel(config)
+    if isinstance(config, PAMConfig):
+        console.print("🤖 Instantiating PAM model...")
+        model = PAMModel(config)
+    else:
+        console.print("🤖 Instantiating GPT model...")
+        model = GPTModel(config)
     
     state_dict = checkpoint["model"]
     unwanted_prefix = '_orig_mod.'
@@ -218,8 +234,12 @@ def inference(
         console.print("[bold red]❌ Checkpoint does not contain config metadata.[/bold red]")
         raise typer.Exit(code=1)
 
-    console.print("🤖 Instantiating GPT model...")
-    model = GPTModel(config)
+    if isinstance(config, PAMConfig):
+        console.print("🤖 Instantiating PAM model...")
+        model = PAMModel(config)
+    else:
+        console.print("🤖 Instantiating GPT model...")
+        model = GPTModel(config)
     
     state_dict = checkpoint["model"]
     unwanted_prefix = '_orig_mod.'
