@@ -19,6 +19,39 @@ from src.callbacks.checkpoint import CheckpointCallback
 app = typer.Typer(help="🔥 NanoGPT Benchmark CLI Interface 🔥")
 console = Console()
 
+
+def instantiate_model(config) -> torch.nn.Module:
+    """
+    Instantiate model from config object (either PAMConfig or GPTConfig).
+    """
+    if isinstance(config, PAMConfig):
+        console.print(f"🤖 Instantiating PAM model architecture (n_layer={config.n_layer}, n_head={config.n_head}, dim={config.dim})...")
+        return PAMModel(config)
+    else:
+        console.print(f"🤖 Instantiating GPT model architecture (n_layer={config.n_layer}, n_head={config.n_head}, n_embd={config.n_embd})...")
+        return GPTModel(config)
+
+
+def create_model_from_dict(model_cfg: dict) -> torch.nn.Module:
+    """
+    Create a model and its configuration from a dictionary.
+    """
+    model_cfg = model_cfg.copy()
+    if "dropout" in model_cfg:
+        model_cfg["dropout"] = float(model_cfg["dropout"])
+    
+    model_type = model_cfg.pop("type", "gpt")
+    if model_type == "pam":
+        if "block_size" in model_cfg:
+            model_cfg["max_seq_len"] = model_cfg["block_size"]
+        if "n_embd" in model_cfg:
+            model_cfg["dim"] = model_cfg["n_embd"]
+        config = PAMConfig(**model_cfg)
+    else:
+        config = GPTConfig(**model_cfg)
+        
+    return instantiate_model(config)
+
 @app.command()
 def train(
     config_path: Path = typer.Argument(..., help="Path to the YAML configuration file.", exists=True, file_okay=True, dir_okay=False, readable=True),
@@ -44,23 +77,8 @@ def train(
     dataset = ShakespeareDataset(data_dir=data_dir)
 
     # 2. Model Config
-    model_cfg = config.get("model", {}).copy()
-    if "dropout" in model_cfg:
-        model_cfg["dropout"] = float(model_cfg["dropout"])
-    
-    model_type = model_cfg.pop("type", "gpt")
-    if model_type == "pam":
-        if "block_size" in model_cfg:
-            model_cfg["max_seq_len"] = model_cfg["block_size"]
-        if "n_embd" in model_cfg:
-            model_cfg["dim"] = model_cfg["n_embd"]
-        pam_config = PAMConfig(**model_cfg)
-        console.print(f"🤖 Initializing PAM model architecture (n_layer={pam_config.n_layer}, n_head={pam_config.n_head}, dim={pam_config.dim})...")
-        model = PAMModel(pam_config)
-    else:
-        gpt_config = GPTConfig(**model_cfg)
-        console.print(f"🤖 Initializing GPT model architecture (n_layer={gpt_config.n_layer}, n_head={gpt_config.n_head}, n_embd={gpt_config.n_embd})...")
-        model = GPTModel(gpt_config)
+    model_cfg = config.get("model", {})
+    model = create_model_from_dict(model_cfg)
 
     # 3. Trainer & Optimizer configs
     trainer_cfg = config.get("trainer", {}).copy()
@@ -160,12 +178,7 @@ def eval(
         console.print("[bold red]❌ Checkpoint does not contain config metadata.[/bold red]")
         raise typer.Exit(code=1)
 
-    if isinstance(config, PAMConfig):
-        console.print("🤖 Instantiating PAM model...")
-        model = PAMModel(config)
-    else:
-        console.print("🤖 Instantiating GPT model...")
-        model = GPTModel(config)
+    model = instantiate_model(config)
     
     state_dict = checkpoint["model"]
     unwanted_prefix = '_orig_mod.'
@@ -234,12 +247,7 @@ def inference(
         console.print("[bold red]❌ Checkpoint does not contain config metadata.[/bold red]")
         raise typer.Exit(code=1)
 
-    if isinstance(config, PAMConfig):
-        console.print("🤖 Instantiating PAM model...")
-        model = PAMModel(config)
-    else:
-        console.print("🤖 Instantiating GPT model...")
-        model = GPTModel(config)
+    model = instantiate_model(config)
     
     state_dict = checkpoint["model"]
     unwanted_prefix = '_orig_mod.'
