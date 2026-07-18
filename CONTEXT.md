@@ -32,3 +32,16 @@ _Avoid_: Writer, MetricTracker
 A base class for hooks executed at specific points during a Training Run (e.g., on epoch start/end, on step start/end) to perform auxiliary tasks like checkpointing or custom evaluation.
 _Avoid_: Hook, Plugin
 
+**Phase-Associative Memory (PAM)**:
+A complex-valued sequence modeling architecture whose internal state is a complex matrix $S_t \in \mathbb{C}^{d \times d}$ representing content-addressable associative storage. It retrieves values using the complex-conjugate inner product between keys and queries, achieving selective retrieval via constructive/destructive interference without softmax attention.
+_Avoid_: Attention, Attention-free SSM
+
+**Complex Gated Unit (CGU)**:
+A channel-mixing module in complex-valued neural networks that gates the signal using magnitude and phase, serving as the feed-forward / channel-mixing block in the PAM model.
+_Avoid_: FeedForward, MLP
+
+**Complex Representation (Split-Real Form)**:
+Representing complex numbers $z = a + ib$ using a float tensor with a final dimension of size 2 (e.g., shape `[..., d, 2]`).
+_Avoid_: Complex dtype, Real projection
+
+
