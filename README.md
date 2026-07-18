@@ -4,7 +4,7 @@ A modular, clean, and highly extensible training and evaluation platform for lan
 
 ## Features
 
-- 🤖 **Modular Design**: Structured around clean abstract base classes: [Model](src/base/model.py), [Dataset](src/base/dataset.py), [Callback](src/base/callback.py), and [Logger](src/base/logger.py).
+- 🤖 **Modular Design**: Structured around clean abstract base classes: [Model](src/base/model.py), [Dataset](src/base/dataset.py), [Callback](src/base/callback.py), and [Logger](src/base/logger.py). Supports multiple model architectures, including standard **GPT** and **Phase-Associative Memory (PAM)**.
 - 🚀 **Typer & Rich CLI**: Interactive command-line interface supporting model training, checkpoint validation, and sequence generation with styled terminal formatting.
 - 📉 **TensorBoard Logs**: Automatic logging of step-level and evaluation-level metrics (Loss, LR, step times, and MFU).
 - 💾 **Smart Checkpointing**: Saves both the last run and the best performing model checkpoint based on validation loss.
@@ -17,7 +17,7 @@ A modular, clean, and highly extensible training and evaluation platform for lan
 ```mermaid
 graph TD
     CLI[CLI Entrypoint: main.py] -->|Commands| Trainer[Trainer]
-    Trainer -->|Executes| Model[GPTModel]
+    Trainer -->|Executes| Model["Model (GPTModel / PAMModel)"]
     Trainer -->|Retrieves Batches| Dataset[ShakespeareDataset]
     Trainer -->|Triggers Lifecycle| Callbacks[Callbacks: TerminalLogger, TensorBoardLogger, CheckpointCallback]
 ```
@@ -37,12 +37,16 @@ conda run -n uv-env uv sync
 
 ## CLI Interface Usage
 
-You can execute commands through the root entry point `main.py`:
+You can execute commands through the root entry point `main.py` (which runs `src/cli.py`):
 
 ### 🚀 1. Train a Model
-Train a GPT model using a YAML configuration file path. You can override parameters on the fly:
+Train a model using a YAML configuration file path. You can override parameters on the fly:
 ```bash
-python main.py train path/to/config.yaml --learning-rate 1e-4 --steps 5000 --batch-size 32
+# Train standard GPT model:
+python main.py train configs/train_shakespeare.yaml --learning-rate 6e-4 --steps 5000 --batch-size 32
+
+# Train Phase-Associative Memory (PAM) model:
+python main.py train configs/train_shakespeare_pam.yaml --learning-rate 6e-4 --steps 5000 --batch-size 32
 ```
 *Outputs are saved under `runs/run_YYYYMMDD_HHMMSS/` containing checkpoints, TensorBoard event files, and logs.*
 
@@ -66,5 +70,5 @@ python main.py inference --checkpoint-path runs/run_xxx/best_ckpt.pt --prompt "T
 Run all unit and integration tests inside the environment using pytest:
 
 ```bash
-conda run -n uv-env uv run --with pytest python -m pytest
+conda run -n uv-env env PYTHONPATH=. uv run pytest
 ```
