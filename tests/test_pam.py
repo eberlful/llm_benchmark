@@ -8,7 +8,7 @@ from src.models.pam import (
     fused_decay_matrix,
     ModReLU, ModSwish, PhaseModulatedActivation,
     ComplexLinear, ComplexNorm, ComplexEmbed, ComplexPosEmbed,
-    ComplexGatedUnit, V11PAMLayer, V11Block, PAMConfig
+    ComplexGatedUnit, V11PAMLayer, V11Block, PAMConfig, PAMModel
 )
 
 def test_complex_math_helpers():
@@ -162,3 +162,145 @@ def test_v11_block():
     x = torch.randn(2, 10, 16, 2)
     out, state = block(x)
     assert out.shape == (2, 10, 16, 2)
+
+
+def test_pam_model_initialization():
+    config = PAMConfig(
+        block_size=64,
+        vocab_size=256,
+        n_layer=2,
+        n_head=2,
+        head_dim=8,
+        dim=16,
+        dropout=0.0,
+        bias=True
+    )
+    model = PAMModel(config)
+    assert model is not None
+    assert model.get_num_params() > 0
+
+def test_pam_model_forward_without_targets():
+    config = PAMConfig(
+        block_size=64,
+        vocab_size=256,
+        n_layer=2,
+        n_head=2,
+        head_dim=8,
+        dim=16,
+        dropout=0.0,
+        bias=True
+    )
+    model = PAMModel(config)
+    model.eval()
+    
+    batch_size = 4
+    seq_len = 16
+    idx = torch.randint(0, config.vocab_size, (batch_size, seq_len))
+    
+    logits, loss = model(idx)
+    assert logits.shape == (batch_size, 1, config.vocab_size)
+    assert loss is None
+
+def test_pam_model_forward_with_targets():
+    config = PAMConfig(
+        block_size=64,
+        vocab_size=256,
+        n_layer=2,
+        n_head=2,
+        head_dim=8,
+        dim=16,
+        dropout=0.0,
+        bias=True
+    )
+    model = PAMModel(config)
+    model.eval()
+    
+    batch_size = 4
+    seq_len = 16
+    idx = torch.randint(0, config.vocab_size, (batch_size, seq_len))
+    targets = torch.randint(0, config.vocab_size, (batch_size, seq_len))
+    
+    logits, loss = model(idx, targets)
+    assert logits.shape == (batch_size, seq_len, config.vocab_size)
+    assert isinstance(loss, torch.Tensor)
+    assert loss.dim() == 0  # scalar loss
+
+def test_pam_model_generate():
+    config = PAMConfig(
+        block_size=64,
+        vocab_size=256,
+        n_layer=2,
+        n_head=2,
+        head_dim=8,
+        dim=16,
+        dropout=0.0,
+        bias=True
+    )
+    model = PAMModel(config)
+    model.eval()
+    
+    batch_size = 2
+    seq_len = 8
+    idx = torch.randint(0, config.vocab_size, (batch_size, seq_len))
+    max_new_tokens = 10
+    
+    # generate without top_k
+    generated = model.generate(idx, max_new_tokens=max_new_tokens, temperature=0.8, top_k=None)
+    assert generated.shape == (batch_size, seq_len + max_new_tokens)
+    
+    # generate with top_k
+    generated_topk = model.generate(idx, max_new_tokens=max_new_tokens, temperature=0.8, top_k=10)
+    assert generated_topk.shape == (batch_size, seq_len + max_new_tokens)
+
+def test_pam_model_configure_optimizers():
+    config = PAMConfig(
+        block_size=64,
+        vocab_size=256,
+        n_layer=2,
+        n_head=2,
+        head_dim=8,
+        dim=16,
+        dropout=0.0,
+        bias=True
+    )
+    model = PAMModel(config)
+    
+    optimizer = model.configure_optimizers(
+        weight_decay=0.1,
+        learning_rate=1e-3,
+        betas=(0.9, 0.95),
+        device_type="cpu"
+    )
+    
+    assert isinstance(optimizer, torch.optim.AdamW)
+    assert len(optimizer.param_groups) == 2
+    # group 0 should have weight_decay = 0.1, group 1 should have weight_decay = 0.0
+    assert optimizer.param_groups[0]['weight_decay'] == 0.1
+    assert optimizer.param_groups[1]['weight_decay'] == 0.0
+
+def test_pam_model_parallel_recurrent_equivalence():
+    config = PAMConfig(
+        block_size=64,
+        vocab_size=256,
+        n_layer=2,
+        n_head=2,
+        head_dim=8,
+        dim=16,
+        dropout=0.0,
+        bias=True
+    )
+    torch.manual_seed(42)
+    model = PAMModel(config).eval()
+    
+    batch_size = 2
+    seq_len = 16
+    idx = torch.randint(0, config.vocab_size, (batch_size, seq_len))
+    
+    with torch.no_grad():
+        # Parallel forward pass: statelessly gets final token logit
+        parallel_logits, _ = model(idx)
+        
+        # Recurrent decode: prompt prefill, then step 0
+        prompt_logits, states = model.forward_with_states(idx)
+        # The next token logits at prompt end should equal parallel_logits
+        assert torch.allclose(prompt_logits[:, -1, :], parallel_logits.squeeze(1), atol=1e-4)

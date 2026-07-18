@@ -1,6 +1,9 @@
 import math
+import inspect
 from dataclasses import dataclass
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Dict, Any
+
+from src.base.model import Model
 
 import torch
 import torch.nn as nn
@@ -323,6 +326,7 @@ class PAMConfig:
     gate_surprisal_sign: float = 1.0
     fused_e3: bool = True
     recompute_pam_chunks: bool = False
+    gradient_checkpointing: bool = False
 
     def __post_init__(self):
         if self.max_seq_len is None:
@@ -1137,3 +1141,172 @@ class V11Block(nn.Module):
         pam_out, new_state = self.pam(self.norm2(x), state=pam_state, step_offset=step_offset)
         x = x + pam_out * self.pam_scale
         return x, new_state
+
+
+# ── PAM Model Wrapper ─────────────────────────────────────────────────────────
+
+class PAMModel(Model):
+    """Phase-Associative Memory sequence model wrapping the stacked V11Blocks."""
+
+    def __init__(self, config: PAMConfig):
+        super().__init__()
+        self.config = config
+        self.embed = ComplexEmbed(config.vocab_size, config.dim)
+        self.pos_embed = (
+            ComplexPosEmbed(config.max_seq_len, config.dim) if getattr(config, 'use_learned_pos', False) else None
+        )
+        self.embed_norm = ComplexNorm(config.dim)
+        self.blocks = nn.ModuleList([V11Block(config, layer_idx=i) for i in range(config.n_layers)])
+        self.output_norm = ComplexNorm(config.dim)
+        self.lm_head_proj = ComplexLinear(config.dim, config.dim)
+        self.lm_head_norm = ComplexNorm(config.dim)
+
+        self._init_weights()
+
+        # report number of parameters
+        print("number of parameters: %.2fM" % (self.get_num_params()/1e6,))
+
+    def _init_weights(self):
+        embed_embeddings = {self.embed.embed_real, self.embed.embed_imag}
+        for module in self.modules():
+            if isinstance(module, nn.Linear):
+                nn.init.normal_(module.weight, std=0.02)
+                if module.bias is not None:
+                    nn.init.zeros_(module.bias)
+            elif isinstance(module, nn.Embedding) and module not in embed_embeddings:
+                nn.init.normal_(module.weight, std=0.02)
+        # re-apply custom biases
+        for _, module in self.named_modules():
+            if hasattr(module, 'protect_gate') and isinstance(module.protect_gate, nn.Linear):
+                nn.init.constant_(module.protect_gate.bias, getattr(module, 'protect_gate_bias', -3.0))
+            if isinstance(module, V11PAMLayer) and module.n_states > 1:
+                module._init_phase_proj()
+
+    def get_num_params(self, non_embedding: bool = True) -> int:
+        """
+        Return the number of parameters in the model.
+        For non-embedding count (default), the position embeddings get subtracted.
+        The token embeddings would too, except they are shared/tied in readout,
+        so they are included in non-embedding param count.
+        """
+        n_params = sum(p.numel() for p in self.parameters())
+        if non_embedding and self.pos_embed is not None:
+            n_params -= sum(p.numel() for p in self.pos_embed.parameters())
+        return n_params
+
+    def _ckpt_block(self, block, z, step_offset):
+        def run(z_in):
+            return block(z_in, pam_state=None, step_offset=step_offset)
+        return grad_checkpoint(run, z, use_reentrant=False)
+
+    def forward_with_states(self, input_ids: torch.Tensor, states: Optional[List[torch.Tensor]] = None, step_offset: int = 0) -> Tuple[torch.Tensor, List[torch.Tensor]]:
+        # input_ids: shape (B, T)
+        z = self.embed(input_ids)
+        if self.pos_embed is not None:
+            z = self.pos_embed(z, step_offset=step_offset)
+        z = self.embed_norm(z)
+
+        use_ckpt = self.config.gradient_checkpointing and self.training and states is None
+        new_states = []
+        for i, block in enumerate(self.blocks):
+            s = states[i] if states is not None else None
+            if use_ckpt:
+                z, new_s = self._ckpt_block(block, z, step_offset)
+            else:
+                z, new_s = block(z, pam_state=s, step_offset=step_offset)
+            new_states.append(new_s)
+
+        z = self.output_norm(z)
+        lm = self.lm_head_norm(self.lm_head_proj(z))
+
+        # Readout with tied weights: real and imaginary parts contribute then add
+        logits = (
+            real_part(lm) @ self.embed.embed_real.weight.T
+            + imag_part(lm) @ self.embed.embed_imag.weight.T
+        )
+        return logits, new_states
+
+    def forward(
+        self, idx: torch.Tensor, targets: Optional[torch.Tensor] = None
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+        logits, _ = self.forward_with_states(idx)
+        if targets is not None:
+            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1)
+        else:
+            logits = logits[:, [-1], :]
+            loss = None
+        return logits, loss
+
+    def configure_optimizers(
+        self,
+        weight_decay: float,
+        learning_rate: float,
+        betas: Tuple[float, float],
+        device_type: str,
+    ) -> torch.optim.Optimizer:
+        # start with all of the candidate parameters
+        param_dict = {pn: p for pn, p in self.named_parameters()}
+        # filter out those that do not require grad
+        param_dict = {pn: p for pn, p in param_dict.items() if p.requires_grad}
+        
+        # create optim groups. Group 2D parameters ending in weight, weight_real, and weight_imag for decay.
+        decay_params = []
+        nodecay_params = []
+        for pn, p in param_dict.items():
+            if pn.endswith('weight') or pn.endswith('weight_real') or pn.endswith('weight_imag'):
+                if p.dim() >= 2:
+                    decay_params.append(p)
+                else:
+                    nodecay_params.append(p)
+            else:
+                nodecay_params.append(p)
+
+        optim_groups = [
+            {'params': decay_params, 'weight_decay': weight_decay},
+            {'params': nodecay_params, 'weight_decay': 0.0}
+        ]
+        
+        num_decay_params = sum(p.numel() for p in decay_params)
+        num_nodecay_params = sum(p.numel() for p in nodecay_params)
+        print(f"num decayed parameter tensors: {len(decay_params)}, with {num_decay_params:,} parameters")
+        print(f"num non-decayed parameter tensors: {len(nodecay_params)}, with {num_nodecay_params:,} parameters")
+
+        # Create AdamW optimizer
+        fused_available = 'fused' in inspect.signature(torch.optim.AdamW).parameters
+        use_fused = fused_available and device_type == 'cuda'
+        extra_args = dict(fused=True) if use_fused else dict()
+        optimizer = torch.optim.AdamW(optim_groups, lr=learning_rate, betas=betas, **extra_args)
+        print(f"using fused AdamW: {use_fused}")
+
+        return optimizer
+
+    @torch.no_grad()
+    def generate(
+        self,
+        idx: torch.Tensor,
+        max_new_tokens: int,
+        temperature: float = 1.0,
+        top_k: Optional[int] = None,
+    ) -> torch.Tensor:
+        """
+        Take prompt idx (B, T) and generate completions.
+        Uses prompt parallel prefill, then O(1)/token recurrent decoding.
+        """
+        self.eval()
+        generated = idx.clone()
+        logits, states = self.forward_with_states(generated)
+        step = generated.shape[1]
+
+        for _ in range(max_new_tokens):
+            next_logits = logits[:, -1, :] / temperature
+            if top_k is not None:
+                v, _ = torch.topk(next_logits, min(top_k, next_logits.size(-1)))
+                next_logits[next_logits < v[:, [-1]]] = -float('Inf')
+            probs = F.softmax(next_logits, dim=-1)
+            nxt = torch.multinomial(probs, num_samples=1)
+            generated = torch.cat([generated, nxt], dim=1)
+
+            logits, states = self.forward_with_states(nxt, states=states, step_offset=step)
+            step += 1
+
+        return generated
