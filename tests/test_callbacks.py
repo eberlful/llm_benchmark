@@ -90,7 +90,7 @@ def test_tensorboard_logger_and_checkpoint_callbacks(temp_dataset_dir, temp_run_
     
     assert os.path.exists(best_ckpt_path), "best_ckpt.pt not found."
     assert os.path.exists(last_ckpt_path), "last_ckpt.pt not found."
-    assert len(step_ckpt_files) > 0, "No step-specific checkpoint files generated."
+    assert len(step_ckpt_files) == 1, f"Expected exactly 1 step-specific checkpoint file, found {len(step_ckpt_files)}."
     
     # Load and verify checkpoints
     best_ckpt = torch.load(best_ckpt_path, map_location="cpu", weights_only=False)

@@ -46,6 +46,14 @@ class CheckpointCallback(Callback):
             'best_val_loss': self.best_val_loss,
         }
 
+        # Remove old step checkpoint files so only the latest remains
+        for fname in os.listdir(out_dir):
+            if fname.startswith("ckpt_step_") and fname.endswith(".pt"):
+                try:
+                    os.remove(os.path.join(out_dir, fname))
+                except OSError:
+                    pass
+
         # Save checkpoint with step and monitor value in filename
         step_filename = f"ckpt_step_{steps}_val_loss_{val_loss:.4f}.pt"
         step_path = os.path.join(out_dir, step_filename)
@@ -61,5 +69,6 @@ class CheckpointCallback(Callback):
             best_path = os.path.join(out_dir, "best_ckpt.pt")
             torch.save(checkpoint, best_path)
             self.console.print(f"[bold green]🏆 Saved new best checkpoint to [cyan]{best_path}[/cyan] (step {steps}, val_loss: {val_loss:.4f})[/bold green]")
+
 
 
