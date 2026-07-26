@@ -46,14 +46,20 @@ class CheckpointCallback(Callback):
             'best_val_loss': self.best_val_loss,
         }
 
-        # Save last checkpoint
+        # Save checkpoint with step and monitor value in filename
+        step_filename = f"ckpt_step_{steps}_val_loss_{val_loss:.4f}.pt"
+        step_path = os.path.join(out_dir, step_filename)
+        torch.save(checkpoint, step_path)
+
+        # Also update last_ckpt.pt for convenience
         last_path = os.path.join(out_dir, "last_ckpt.pt")
         torch.save(checkpoint, last_path)
-        self.console.print(f"[bold green]💾 Saved last checkpoint to [cyan]{last_path}[/cyan] (step {steps}, val_loss: {val_loss:.4f})[/bold green]")
+        self.console.print(f"[bold green]💾 Saved checkpoint to [cyan]{step_path}[/cyan][/bold green]")
 
         # Save best checkpoint if validation loss improved
         if is_best:
             best_path = os.path.join(out_dir, "best_ckpt.pt")
             torch.save(checkpoint, best_path)
             self.console.print(f"[bold green]🏆 Saved new best checkpoint to [cyan]{best_path}[/cyan] (step {steps}, val_loss: {val_loss:.4f})[/bold green]")
+
 

@@ -86,9 +86,11 @@ def test_tensorboard_logger_and_checkpoint_callbacks(temp_dataset_dir, temp_run_
     # 2. Assert Checkpoints are created
     best_ckpt_path = os.path.join(temp_run_dir, "best_ckpt.pt")
     last_ckpt_path = os.path.join(temp_run_dir, "last_ckpt.pt")
+    step_ckpt_files = [f for f in os.listdir(temp_run_dir) if f.startswith("ckpt_step_") and "val_loss_" in f]
     
     assert os.path.exists(best_ckpt_path), "best_ckpt.pt not found."
     assert os.path.exists(last_ckpt_path), "last_ckpt.pt not found."
+    assert len(step_ckpt_files) > 0, "No step-specific checkpoint files generated."
     
     # Load and verify checkpoints
     best_ckpt = torch.load(best_ckpt_path, map_location="cpu", weights_only=False)
