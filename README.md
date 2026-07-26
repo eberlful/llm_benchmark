@@ -26,11 +26,11 @@ graph TD
 
 ## Installation & Setup
 
-Ensure you have [uv](https://github.com/astral-sh/uv) and [conda](https://docs.conda.io/en/latest/) installed, then run the commands inside the benchmark conda environment:
+Ensure you have [uv](https://github.com/astral-sh/uv) installed, then run the commands:
 
 ```bash
 # Setup dependency packages using uv
-conda run -n uv-env uv sync
+uv sync
 ```
 
 ---
@@ -70,5 +70,5 @@ python main.py inference --checkpoint-path runs/run_xxx/best_ckpt.pt --prompt "T
 Run all unit and integration tests inside the environment using pytest:
 
 ```bash
-conda run -n uv-env env PYTHONPATH=. uv run pytest
+PYTHONPATH=. uv run pytest
 ```

@@ -15,7 +15,7 @@ Single-context layout. See `docs/agents/domain.md`.
 
 ### Code execution
 
-To execute code use the uv which are installed in a conda env called uv-env.
+To execute code use the uv.
 
-With the command `conda run -n uv-env uv [COMMAND]` you can execute code.
+With the command `uv [COMMAND]` you can execute code.
 
