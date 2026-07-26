@@ -99,6 +99,8 @@ def test_tensorboard_logger_and_checkpoint_callbacks(temp_dataset_dir, temp_run_
         assert "optimizer" in ckpt
         assert "config" in ckpt
         assert "steps" in ckpt
+        assert "step" in ckpt
+        assert "val_loss" in ckpt
         assert "best_val_loss" in ckpt
         
         # Verify weight matrices match or exist
@@ -112,9 +114,14 @@ def test_tensorboard_logger_and_checkpoint_callbacks(temp_dataset_dir, temp_run_
         # Verify optimizer dictionary is correct
         assert isinstance(ckpt["optimizer"], dict)
         
-        # Verify steps is valid
+        # Verify steps and step are valid
         assert isinstance(ckpt["steps"], int)
         assert ckpt["steps"] >= 0
+        assert ckpt["step"] == ckpt["steps"]
+
+        # Verify val_loss is valid
+        assert isinstance(ckpt["val_loss"], float)
+        assert ckpt["val_loss"] > 0.0
         
         # Verify best_val_loss is valid
         assert isinstance(ckpt["best_val_loss"], float)
