@@ -58,6 +58,9 @@ def train(
     learning_rate: Optional[float] = typer.Option(None, "--learning-rate", "-lr", help="Override optimizer learning rate."),
     steps: Optional[int] = typer.Option(None, "--steps", "-s", help="Override maximum iterations/steps."),
     batch_size: Optional[int] = typer.Option(None, "--batch-size", "-b", help="Override training batch size."),
+    eval_interval: Optional[int] = typer.Option(None, "--eval-interval", "-ei", help="Override evaluation interval."),
+    eval_iters: Optional[int] = typer.Option(None, "--eval-iters", help="Override evaluation iterations."),
+    log_interval: Optional[int] = typer.Option(None, "--log-interval", help="Override logging interval."),
 ):
     """
     🚀 Start training a model with a YAML config and optional parameter overrides.
@@ -114,6 +117,12 @@ def train(
         trainer_cfg["max_iters"] = steps
     if batch_size is not None:
         trainer_cfg["batch_size"] = batch_size
+    if eval_interval is not None:
+        trainer_cfg["eval_interval"] = eval_interval
+    if eval_iters is not None:
+        trainer_cfg["eval_iters"] = eval_iters
+    if log_interval is not None:
+        trainer_cfg["log_interval"] = log_interval
 
     # Create a unique output directory under runs/
     timestamp = time.strftime("%Y%m%d_%H%M%S")

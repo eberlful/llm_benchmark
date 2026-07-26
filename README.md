@@ -7,7 +7,7 @@ A modular, clean, and highly extensible training and evaluation platform for lan
 - 🤖 **Modular Design**: Structured around clean abstract base classes: [Model](src/base/model.py), [Dataset](src/base/dataset.py), [Callback](src/base/callback.py), and [Logger](src/base/logger.py). Supports multiple model architectures, including standard **GPT** and **Phase-Associative Memory (PAM)**.
 - 🚀 **Typer & Rich CLI**: Interactive command-line interface supporting model training, checkpoint validation, and sequence generation with styled terminal formatting.
 - 📉 **TensorBoard Logs**: Automatic logging of step-level and evaluation-level metrics (Loss, LR, step times, and MFU).
-- 💾 **Smart Checkpointing**: Saves both the last run and the best performing model checkpoint based on validation loss.
+- 💾 **Smart Checkpointing**: Saves step-specific checkpoints formatted with step count and monitor loss (`ckpt_step_{step}_val_loss_{loss}.pt`), as well as convenience checkpoints (`last_ckpt.pt` and `best_ckpt.pt`) based on validation loss.
 - 🧪 **Comprehensive Tests**: Integration and unit tests covering all components, trainer hooks, and command-line interfaces.
 
 ---
@@ -42,18 +42,18 @@ You can execute commands through the root entry point `main.py` (which runs `src
 ### 🚀 1. Train a Model
 Train a model using a YAML configuration file path. You can override parameters on the fly:
 ```bash
-# Train standard GPT model:
-python main.py train configs/train_shakespeare.yaml --learning-rate 6e-4 --steps 5000 --batch-size 32
+# Train standard GPT model with custom overrides:
+python main.py train configs/train_shakespeare.yaml --learning-rate 6e-4 --steps 5000 --batch-size 32 --eval-interval 100 --log-interval 10
 
 # Train Phase-Associative Memory (PAM) model:
 python main.py train configs/train_shakespeare_pam.yaml --learning-rate 6e-4 --steps 5000 --batch-size 32
 ```
-*Outputs are saved under `runs/run_YYYYMMDD_HHMMSS/` containing checkpoints, TensorBoard event files, and logs.*
+*Outputs are saved under `runs/run_YYYYMMDD_HHMMSS/` containing step-named checkpoints (`ckpt_step_X_val_loss_Y.pt`), `last_ckpt.pt`, `best_ckpt.pt`, TensorBoard event files, and logs.*
 
 ### 🔍 2. Evaluate Checkpoint
 Run model evaluations against the validation dataset split to calculate the average loss:
 ```bash
-python main.py eval --checkpoint-path runs/run_xxx/last_ckpt.pt --eval-iters 100
+python main.py eval --checkpoint-path runs/run_xxx/best_ckpt.pt --eval-iters 100
 ```
 
 ### ✨ 3. Text Generation (Inference)
