@@ -99,6 +99,8 @@ def train(
         device = "cuda" if torch.cuda.is_available() else "cpu"
     device_type = "cuda" if "cuda" in device else "cpu"
 
+    model = model.to(device)
+
     console.print(f"⚡ Device set to [yellow]{device}[/yellow], configuring optimizer...")
     optimizer = model.configure_optimizers(
         weight_decay=weight_decay,

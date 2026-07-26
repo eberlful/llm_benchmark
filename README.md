@@ -63,6 +63,16 @@ python main.py inference --checkpoint-path runs/run_xxx/best_ckpt.pt --prompt "T
 ```
 *You can also read prompts from a text file using `--prompt-file / -f` option.*
 
+### 📊 4. Visualizing & Comparing Runs (TensorBoard)
+Visualize step-level and evaluation metrics, or compare multiple runs with custom aliases using TensorBoard:
+```bash
+# View all runs under the runs/ directory:
+tensorboard --logdir=runs
+
+# Compare specific runs with custom labels using --logdir_spec:
+tensorboard --logdir_spec=GPT:runs/run_xxx,PAM:runs/run_yyy
+```
+
 ---
 
 ## Running the Test Suite

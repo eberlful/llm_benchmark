@@ -92,3 +92,26 @@ def test_trainer_integration(temp_dataset_dir, temp_run_dir):
     assert "Step 4" in log_content
     assert "Eval results" in log_content
     assert "Training completed!" in log_content
+
+
+def test_trainer_device_placement(temp_dataset_dir, temp_run_dir):
+    dataset = ShakespeareDataset(data_dir=temp_dataset_dir)
+    config = GPTConfig(block_size=16, vocab_size=50304, n_layer=1, n_head=1, n_embd=16, bias=False)
+    model = GPTModel(config)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+
+    trainer = Trainer(
+        model=model,
+        dataset=dataset,
+        optimizer=optimizer,
+        max_iters=1,
+        batch_size=2,
+        block_size=8,
+        learning_rate=1e-4,
+        device="cpu",
+        out_dir=temp_run_dir,
+    )
+
+    for param in trainer.model.parameters():
+        assert param.device == torch.device("cpu")
+

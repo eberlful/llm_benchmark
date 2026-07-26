@@ -36,7 +36,8 @@ class Trainer:
         out_dir: str = 'out',
         callbacks: Optional[List[Callback]] = None,
     ):
-        self.model = model
+        self.device = device
+        self.model = model.to(self.device)
         self.dataset = dataset
         self.optimizer = optimizer
         self.max_iters = max_iters
@@ -49,7 +50,6 @@ class Trainer:
         self.min_lr = min_lr
         self.grad_clip = grad_clip
         self.gradient_accumulation_steps = gradient_accumulation_steps
-        self.device = device
         self.dtype = dtype
         self.eval_interval = eval_interval
         self.eval_iters = eval_iters
