@@ -20,8 +20,26 @@ app = typer.Typer(help="☁️ Sync training runs with Google Drive for Colab / 
 console = Console()
 
 
+def find_colab_drive_root(mount_point: str = "/content/drive") -> Optional[Path]:
+    """Find mounted Google Drive root directory if it exists on disk."""
+    base = Path(mount_point)
+    if not base.exists():
+        return None
+    
+    for candidate_name in ["MyDrive", "My Drive"]:
+        candidate = base / candidate_name
+        if candidate.exists() and candidate.is_dir():
+            return candidate
+            
+    if base.is_dir() and any(base.iterdir()):
+        return base
+    return None
+
+
 def is_colab() -> bool:
-    """Check if code is running inside Google Colab."""
+    """Check if running inside Google Colab or if Colab environment paths exist."""
+    if Path("/content/drive").exists() or Path("/content").exists():
+        return True
     try:
         import google.colab  # type: ignore # noqa: F401
         return True
@@ -32,32 +50,31 @@ def is_colab() -> bool:
 def mount_google_drive(mount_point: str = "/content/drive", force: bool = False) -> Optional[Path]:
     """
     Mount Google Drive in Google Colab environment if available.
-    Returns path to drive root (e.g. /content/drive/MyDrive) or None if not in Colab.
+    Returns path to drive root (e.g. /content/drive/MyDrive) or None if not mounted.
     """
-    if is_colab():
-        try:
-            from google.colab import drive  # type: ignore
-            drive_root = Path(mount_point) / "MyDrive"
-            if not drive_root.exists() or force:
-                console.print(f"📌 Mounting Google Drive at [cyan]{mount_point}[/cyan]...")
-                drive.mount(mount_point)
-            if drive_root.exists():
-                return drive_root
-            return Path(mount_point)
-        except Exception as e:
-            console.print(f"[bold yellow]⚠️ Failed to mount Google Drive automatically: {e}[/bold yellow]")
-            return None
-    
-    # Non-colab fallback checks
+    # 1. Check if already mounted on disk
+    existing_root = find_colab_drive_root(mount_point)
+    if existing_root is not None and not force:
+        return existing_root
+
+    # 2. Check GOOGLE_DRIVE_DIR environment variable
     env_drive = os.getenv("GOOGLE_DRIVE_DIR")
     if env_drive:
         return Path(env_drive).expanduser().resolve()
-    
-    colab_path = Path(mount_point) / "MyDrive"
-    if colab_path.exists():
-        return colab_path
-    
-    return None
+
+    # 3. Attempt google.colab mount if in Colab environment
+    if is_colab():
+        try:
+            from google.colab import drive  # type: ignore
+            console.print(f"📌 Mounting Google Drive at [cyan]{mount_point}[/cyan]...")
+            drive.mount(mount_point)
+            existing_root = find_colab_drive_root(mount_point)
+            if existing_root is not None:
+                return existing_root
+        except Exception as e:
+            console.print(f"[bold yellow]⚠️ Failed to mount Google Drive automatically: {e}[/bold yellow]")
+
+    return find_colab_drive_root(mount_point)
 
 
 def resolve_drive_dir(user_drive_dir: Optional[Path] = None, mount: bool = True) -> Path:
@@ -76,8 +93,13 @@ def resolve_drive_dir(user_drive_dir: Optional[Path] = None, mount: bool = True)
         if drive_root is not None:
             return drive_root / "llm_benchmark_runs"
     
-    # Fallback to local drive_runs directory if not in Colab and no env variable set
-    return Path("/content/drive/MyDrive/llm_benchmark_runs") if is_colab() else Path("drive_runs").resolve()
+    # Check if colab drive root exists on disk anyway
+    drive_root = find_colab_drive_root("/content/drive")
+    if drive_root is not None:
+        return drive_root / "llm_benchmark_runs"
+    
+    # Fallback if not in Colab / no Drive mounted
+    return Path("drive_runs").resolve()
 
 
 def get_run_info(run_dir: Path) -> Dict[str, Any]:

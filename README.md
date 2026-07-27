@@ -7,7 +7,7 @@ A modular, clean, and highly extensible training and evaluation platform for lan
 - 🤖 **Modular Design**: Structured around clean abstract base classes: [Model](src/base/model.py), [Dataset](src/base/dataset.py), [Callback](src/base/callback.py), and [Logger](src/base/logger.py). Supports multiple model architectures, including standard **GPT** and **Phase-Associative Memory (PAM)**.
 - 🚀 **Typer & Rich CLI**: Interactive command-line interface supporting model training, checkpoint validation, and sequence generation with styled terminal formatting.
 - 📉 **TensorBoard Logs**: Automatic logging of step-level and evaluation-level metrics (Loss, LR, step times, and MFU).
-- 💾 **Smart Checkpointing**: Saves step-specific checkpoints formatted with step count and monitor loss (`ckpt_step_{step}_val_loss_{loss}.pt`), as well as convenience checkpoints (`last_ckpt.pt` and `best_ckpt.pt`) based on validation loss.
+- 💾 **Smart Checkpointing**: Saves only the single best checkpoint file formatted with step count and monitor validation loss (`ckpt_step_{step}_val_loss_{loss}.pt`), saving disk and Drive space.
 - ☁️ **Google Drive Sync & Resuming**: Synchronize training runs to Google Drive in Google Colab or cloud environments (`python main.py sync upload/download/list`) and seamlessly resume training (`--resume`).
 - 🧪 **Comprehensive Tests**: Integration and unit tests covering all components, trainer hooks, and command-line interfaces.
 
@@ -53,7 +53,7 @@ python main.py train configs/train_shakespeare_pam.yaml --learning-rate 6e-4 --s
 python main.py train configs/train_cpu_light.yaml --steps 50
 python main.py train configs/train_cpu_light_pam.yaml --steps 50
 ```
-*Outputs are saved under `runs/run_YYYYMMDD_HHMMSS/` containing step-named checkpoints (`ckpt_step_X_val_loss_Y.pt`), `last_ckpt.pt`, `best_ckpt.pt`, TensorBoard event files, and logs.*
+*Outputs are saved under `runs/run_YYYYMMDD_HHMMSS/` containing the best checkpoint (`ckpt_step_X_val_loss_Y.pt`), TensorBoard event files, and logs.*
 
 ### 🔍 2. Evaluate Checkpoint
 Run model evaluations against the validation dataset split to calculate the average loss:

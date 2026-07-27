@@ -83,48 +83,44 @@ def test_tensorboard_logger_and_checkpoint_callbacks(temp_dataset_dir, temp_run_
     for tb_file in tb_files:
         assert os.path.getsize(os.path.join(temp_run_dir, tb_file)) > 0
     
-    # 2. Assert Checkpoints are created
-    best_ckpt_path = os.path.join(temp_run_dir, "best_ckpt.pt")
-    last_ckpt_path = os.path.join(temp_run_dir, "last_ckpt.pt")
+    # 2. Assert single best checkpoint is created
     step_ckpt_files = [f for f in os.listdir(temp_run_dir) if f.startswith("ckpt_step_") and "val_loss_" in f]
+    assert len(step_ckpt_files) == 1, f"Expected exactly 1 best checkpoint file, found {len(step_ckpt_files)}."
+    assert not os.path.exists(os.path.join(temp_run_dir, "best_ckpt.pt")), "Redundant best_ckpt.pt should not exist."
+    assert not os.path.exists(os.path.join(temp_run_dir, "last_ckpt.pt")), "Redundant last_ckpt.pt should not exist."
     
-    assert os.path.exists(best_ckpt_path), "best_ckpt.pt not found."
-    assert os.path.exists(last_ckpt_path), "last_ckpt.pt not found."
-    assert len(step_ckpt_files) == 1, f"Expected exactly 1 step-specific checkpoint file, found {len(step_ckpt_files)}."
+    # Load and verify checkpoint
+    best_ckpt_path = os.path.join(temp_run_dir, step_ckpt_files[0])
+    ckpt = torch.load(best_ckpt_path, map_location="cpu", weights_only=False)
     
-    # Load and verify checkpoints
-    best_ckpt = torch.load(best_ckpt_path, map_location="cpu", weights_only=False)
-    last_ckpt = torch.load(last_ckpt_path, map_location="cpu", weights_only=False)
+    assert "model" in ckpt
+    assert "optimizer" in ckpt
+    assert "config" in ckpt
+    assert "steps" in ckpt
+    assert "step" in ckpt
+    assert "val_loss" in ckpt
+    assert "best_val_loss" in ckpt
     
-    for ckpt in [best_ckpt, last_ckpt]:
-        assert "model" in ckpt
-        assert "optimizer" in ckpt
-        assert "config" in ckpt
-        assert "steps" in ckpt
-        assert "step" in ckpt
-        assert "val_loss" in ckpt
-        assert "best_val_loss" in ckpt
-        
-        # Verify weight matrices match or exist
-        assert isinstance(ckpt["model"], dict)
-        assert "transformer.wte.weight" in ckpt["model"]
-        
-        # Verify config is correct
-        assert ckpt["config"].n_embd == 16
-        assert ckpt["config"].n_layer == 1
-        
-        # Verify optimizer dictionary is correct
-        assert isinstance(ckpt["optimizer"], dict)
-        
-        # Verify steps and step are valid
-        assert isinstance(ckpt["steps"], int)
-        assert ckpt["steps"] >= 0
-        assert ckpt["step"] == ckpt["steps"]
+    # Verify weight matrices match or exist
+    assert isinstance(ckpt["model"], dict)
+    assert "transformer.wte.weight" in ckpt["model"]
+    
+    # Verify config is correct
+    assert ckpt["config"].n_embd == 16
+    assert ckpt["config"].n_layer == 1
+    
+    # Verify optimizer dictionary is correct
+    assert isinstance(ckpt["optimizer"], dict)
+    
+    # Verify steps and step are valid
+    assert isinstance(ckpt["steps"], int)
+    assert ckpt["steps"] >= 0
+    assert ckpt["step"] == ckpt["steps"]
 
-        # Verify val_loss is valid
-        assert isinstance(ckpt["val_loss"], float)
-        assert ckpt["val_loss"] > 0.0
-        
-        # Verify best_val_loss is valid
-        assert isinstance(ckpt["best_val_loss"], float)
-        assert ckpt["best_val_loss"] > 0.0
+    # Verify val_loss is valid
+    assert isinstance(ckpt["val_loss"], float)
+    assert ckpt["val_loss"] > 0.0
+    
+    # Verify best_val_loss is valid
+    assert isinstance(ckpt["best_val_loss"], float)
+    assert ckpt["best_val_loss"] > 0.0

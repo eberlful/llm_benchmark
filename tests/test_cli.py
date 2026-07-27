@@ -77,11 +77,10 @@ def test_cli_flow(dummy_dataset_and_config, tmp_path, monkeypatch):
     
     run_dir = runs_dir / runs[0]
     
-    # Assert checkpoints exist
-    last_ckpt = run_dir / "last_ckpt.pt"
-    best_ckpt = run_dir / "best_ckpt.pt"
-    assert last_ckpt.exists()
-    assert best_ckpt.exists()
+    # Assert single best checkpoint exists
+    step_ckpts = list(run_dir.glob("ckpt_step_*.pt"))
+    assert len(step_ckpts) == 1
+    best_ckpt = step_ckpts[0]
     
     # Assert out.log exists
     log_file = run_dir / "out.log"
@@ -95,19 +94,19 @@ def test_cli_flow(dummy_dataset_and_config, tmp_path, monkeypatch):
         assert os.path.getsize(run_dir / tb_file) > 0
     
     # Run the eval command
-    result_eval = runner.invoke(app, ["eval", "-c", str(last_ckpt), "-d", str(dataset_dir), "-b", "1", "-e", "2"])
+    result_eval = runner.invoke(app, ["eval", "-c", str(best_ckpt), "-d", str(dataset_dir), "-b", "1", "-e", "2"])
     assert result_eval.exit_code == 0, f"eval command failed: {result_eval.stdout}"
     assert "Average Validation Loss" in result_eval.stdout
     
     # Run the inference command
-    result_inf = runner.invoke(app, ["inference", "-c", str(last_ckpt), "-p", "Test prompt", "-n", "10"])
+    result_inf = runner.invoke(app, ["inference", "-c", str(best_ckpt), "-p", "Test prompt", "-n", "10"])
     assert result_inf.exit_code == 0, f"inference command failed: {result_inf.stdout}"
     assert "Generated Text Output" in result_inf.stdout
 
     # Run the inference command with prompt file
     prompt_file = tmp_path / "prompt.txt"
     prompt_file.write_text("Hello prompt file")
-    result_inf_file = runner.invoke(app, ["inference", "-c", str(last_ckpt), "-f", str(prompt_file), "-n", "10"])
+    result_inf_file = runner.invoke(app, ["inference", "-c", str(best_ckpt), "-f", str(prompt_file), "-n", "10"])
     assert result_inf_file.exit_code == 0, f"inference file command failed: {result_inf_file.stdout}"
     assert "Generated Text Output" in result_inf_file.stdout
 
@@ -175,17 +174,18 @@ def test_cli_flow_pam(tmp_path, monkeypatch):
     
     run_dir = runs_dir / runs[0]
     
-    # Assert checkpoints exist
-    last_ckpt = run_dir / "last_ckpt.pt"
-    assert last_ckpt.exists()
+    # Assert single best checkpoint exists
+    step_ckpts = list(run_dir.glob("ckpt_step_*.pt"))
+    assert len(step_ckpts) == 1
+    best_ckpt = step_ckpts[0]
     
     # Run the eval command
-    result_eval = runner.invoke(app, ["eval", "-c", str(last_ckpt), "-d", str(dataset_dir), "-b", "1", "-e", "2"])
+    result_eval = runner.invoke(app, ["eval", "-c", str(best_ckpt), "-d", str(dataset_dir), "-b", "1", "-e", "2"])
     assert result_eval.exit_code == 0, f"eval command failed: {result_eval.stdout}"
     assert "Average Validation Loss" in result_eval.stdout
     
     # Run the inference command
-    result_inf = runner.invoke(app, ["inference", "-c", str(last_ckpt), "-p", "Test prompt", "-n", "10"])
+    result_inf = runner.invoke(app, ["inference", "-c", str(best_ckpt), "-p", "Test prompt", "-n", "10"])
     assert result_inf.exit_code == 0, f"inference command failed: {result_inf.stdout}"
     assert "Generated Text Output" in result_inf.stdout
 

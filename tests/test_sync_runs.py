@@ -98,7 +98,7 @@ def test_download_cmd_latest(run_env):
     # Place a new run on drive
     new_drive_run = run_env["drive_dir"] / "run_20260103_120000"
     new_drive_run.mkdir()
-    (new_drive_run / "last_ckpt.pt").write_text("drive checkpoint 3")
+    (new_drive_run / "ckpt_step_300_val_loss_1.5000.pt").write_text("drive checkpoint 3")
 
     result = runner.invoke(
         sync_app,
@@ -107,7 +107,7 @@ def test_download_cmd_latest(run_env):
     assert result.exit_code == 0
     local_downloaded = run_env["local_dir"] / "run_20260103_120000"
     assert local_downloaded.exists()
-    assert (local_downloaded / "last_ckpt.pt").exists()
+    assert (local_downloaded / "ckpt_step_300_val_loss_1.5000.pt").exists()
 
 
 def test_list_cmd(run_env):
