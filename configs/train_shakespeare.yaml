@@ -31,6 +31,6 @@ trainer:
   min_lr: 6e-5           # Final learning rate after decay
   grad_clip: 1.0         # Gradient norm clipping value
   gradient_accumulation_steps: 4
-  eval_interval: 10      # How often to run evaluation splits
+  eval_interval: 30      # How often to run evaluation splits
   eval_iters: 100        # Number of batches to average loss over during eval
   log_interval: 10       # How often to print metrics to terminal/logs
