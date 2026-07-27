@@ -8,6 +8,7 @@ A modular, clean, and highly extensible training and evaluation platform for lan
 - 🚀 **Typer & Rich CLI**: Interactive command-line interface supporting model training, checkpoint validation, and sequence generation with styled terminal formatting.
 - 📉 **TensorBoard Logs**: Automatic logging of step-level and evaluation-level metrics (Loss, LR, step times, and MFU).
 - 💾 **Smart Checkpointing**: Saves step-specific checkpoints formatted with step count and monitor loss (`ckpt_step_{step}_val_loss_{loss}.pt`), as well as convenience checkpoints (`last_ckpt.pt` and `best_ckpt.pt`) based on validation loss.
+- ☁️ **Google Drive Sync & Resuming**: Synchronize training runs to Google Drive in Google Colab or cloud environments (`python main.py sync upload/download/list`) and seamlessly resume training (`--resume`).
 - 🧪 **Comprehensive Tests**: Integration and unit tests covering all components, trainer hooks, and command-line interfaces.
 
 ---
@@ -73,7 +74,25 @@ tensorboard --logdir=runs
 tensorboard --logdir_spec=GPT:runs/run_xxx,PAM:runs/run_yyy
 ```
 
+### ☁️ 5. Syncing Runs with Google Drive & Resuming (Google Colab / Cloud)
+Sync training runs to Google Drive and continue training sessions across multiple days:
+```bash
+# Upload the latest training run to Google Drive:
+python main.py sync upload --latest
+
+# Download runs from Google Drive to local storage:
+python main.py sync download --latest
+
+# List local vs. Google Drive training runs status:
+python main.py sync list
+
+# Resume training from a downloaded run directory:
+python main.py train configs/train_shakespeare.yaml --resume runs/run_20260727_103000 --steps 10000
+```
+*You can also invoke `python scripts/sync_runs.py upload|download|list` directly.*
+
 ---
+
 
 ## Running the Test Suite
 

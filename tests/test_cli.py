@@ -189,3 +189,9 @@ def test_cli_flow_pam(tmp_path, monkeypatch):
     assert result_inf.exit_code == 0, f"inference command failed: {result_inf.stdout}"
     assert "Generated Text Output" in result_inf.stdout
 
+    # Test resuming training from the checkpoint run directory
+    result_resume = runner.invoke(app, ["train", str(config_file), "--steps", "10", "--resume", str(run_dir)])
+    assert result_resume.exit_code == 0, f"resume training failed: {result_resume.stdout}"
+    assert "Resuming training from checkpoint" in result_resume.stdout
+
+

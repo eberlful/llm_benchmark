@@ -15,8 +15,10 @@ from src.trainer import Trainer
 from src.callbacks.terminal_logger import TerminalLogger
 from src.callbacks.tensorboard_logger import TensorBoardLogger
 from src.callbacks.checkpoint import CheckpointCallback
+from scripts.sync_runs import app as sync_app
 
 app = typer.Typer(help="🔥 NanoGPT Benchmark CLI Interface 🔥")
+app.add_typer(sync_app, name="sync", help="☁️ Sync training runs with Google Drive")
 console = Console()
 
 
@@ -61,6 +63,7 @@ def train(
     eval_interval: Optional[int] = typer.Option(None, "--eval-interval", "-ei", help="Override evaluation interval."),
     eval_iters: Optional[int] = typer.Option(None, "--eval-iters", help="Override evaluation iterations."),
     log_interval: Optional[int] = typer.Option(None, "--log-interval", help="Override logging interval."),
+    resume: Optional[Path] = typer.Option(None, "--resume", "-r", help="Path to checkpoint file or run directory to resume training from."),
 ):
     """
     🚀 Start training a model with a YAML config and optional parameter overrides.
@@ -124,9 +127,39 @@ def train(
     if log_interval is not None:
         trainer_cfg["log_interval"] = log_interval
 
-    # Create a unique output directory under runs/
-    timestamp = time.strftime("%Y%m%d_%H%M%S")
-    out_dir = os.path.join("runs", f"run_{timestamp}")
+    # Create or reuse output directory under runs/
+    if resume is not None:
+        checkpoint_file = None
+        if resume.is_dir():
+            out_dir = str(resume)
+            for fname in ["last_ckpt.pt", "best_ckpt.pt"]:
+                if (resume / fname).is_file():
+                    checkpoint_file = resume / fname
+                    break
+            if checkpoint_file is None:
+                pts = sorted(resume.glob("ckpt_step_*.pt"))
+                if pts:
+                    checkpoint_file = pts[-1]
+        elif resume.is_file():
+            checkpoint_file = resume
+            out_dir = str(resume.parent)
+
+        if checkpoint_file is None or not checkpoint_file.exists():
+            console.print(f"[bold red]❌ Could not find valid checkpoint to resume from at '{resume}'[/bold red]")
+            raise typer.Exit(code=1)
+
+        console.print(f"[bold green]🔄 Resuming training from checkpoint: [cyan]{checkpoint_file}[/cyan][/bold green]")
+        ckpt = torch.load(checkpoint_file, map_location=device, weights_only=False)
+        if "model" in ckpt:
+            model.load_state_dict(ckpt["model"])
+        if "optimizer" in ckpt:
+            optimizer.load_state_dict(ckpt["optimizer"])
+        start_step = ckpt.get("step", ckpt.get("steps", 0))
+    else:
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        out_dir = os.path.join("runs", f"run_{timestamp}")
+        start_step = 0
+
     console.print(f"📂 Output run directory: [cyan]{out_dir}[/cyan]")
 
     # Setup callbacks
@@ -158,6 +191,9 @@ def train(
         device=device,
         **trainer_cfg
     )
+    if start_step > 0:
+        trainer.run_state["iter_num"] = start_step
+
 
     console.print("[bold green]🏁 Starting training loop...[/bold green]")
     trainer.train()
