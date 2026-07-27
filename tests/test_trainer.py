@@ -155,3 +155,30 @@ def test_trainer_compilation(temp_dataset_dir, temp_run_dir):
     assert trainer_uncompiled.compile is False
 
 
+def test_trainer_config_saving(temp_dataset_dir, temp_run_dir):
+    dataset = ShakespeareDataset(data_dir=temp_dataset_dir)
+    config_obj = GPTConfig(block_size=16, vocab_size=50304, n_layer=1, n_head=1, n_embd=16, bias=False)
+    model = GPTModel(config_obj)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+
+    dummy_config = {"model": {"n_layer": 1}, "trainer": {"max_iters": 1}}
+    trainer = Trainer(
+        model=model,
+        dataset=dataset,
+        optimizer=optimizer,
+        max_iters=1,
+        batch_size=2,
+        block_size=8,
+        learning_rate=1e-4,
+        device="cpu",
+        compile=False,
+        out_dir=temp_run_dir,
+        config=dummy_config,
+    )
+    trainer.train()
+
+    config_path = os.path.join(temp_run_dir, "config.yaml")
+    assert os.path.exists(config_path)
+    assert trainer.run_state["config"] == dummy_config
+
+

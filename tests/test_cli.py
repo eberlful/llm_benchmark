@@ -86,6 +86,14 @@ def test_cli_flow(dummy_dataset_and_config, tmp_path, monkeypatch):
     log_file = run_dir / "out.log"
     assert log_file.exists()
     assert log_file.stat().st_size > 0
+
+    # Assert config.yaml exists in run directory and contains overridden settings
+    config_saved = run_dir / "config.yaml"
+    assert config_saved.exists()
+    with open(config_saved, "r", encoding="utf-8") as f:
+        saved_data = yaml.safe_load(f)
+    assert saved_data["trainer"]["max_iters"] == 5
+    assert saved_data["trainer"]["batch_size"] == 1
     
     # Assert TensorBoard events exist
     tb_files = [f for f in os.listdir(run_dir) if "tfevents" in f]
@@ -178,6 +186,9 @@ def test_cli_flow_pam(tmp_path, monkeypatch):
     step_ckpts = list(run_dir.glob("ckpt_step_*.pt"))
     assert len(step_ckpts) == 1
     best_ckpt = step_ckpts[0]
+    
+    # Assert config.yaml exists
+    assert (run_dir / "config.yaml").exists()
     
     # Run the eval command
     result_eval = runner.invoke(app, ["eval", "-c", str(best_ckpt), "-d", str(dataset_dir), "-b", "1", "-e", "2"])

@@ -116,19 +116,27 @@ def train(
         device_type=device_type
     )
 
-    # Apply overrides to trainer config
+    # Apply overrides to trainer config and config dict
+    if learning_rate is not None:
+        config.setdefault("optimizer", {})["learning_rate"] = lr
     if steps is not None:
         trainer_cfg["max_iters"] = steps
+        config.setdefault("trainer", {})["max_iters"] = steps
     if batch_size is not None:
         trainer_cfg["batch_size"] = batch_size
+        config.setdefault("trainer", {})["batch_size"] = batch_size
     if eval_interval is not None:
         trainer_cfg["eval_interval"] = eval_interval
+        config.setdefault("trainer", {})["eval_interval"] = eval_interval
     if eval_iters is not None:
         trainer_cfg["eval_iters"] = eval_iters
+        config.setdefault("trainer", {})["eval_iters"] = eval_iters
     if log_interval is not None:
         trainer_cfg["log_interval"] = log_interval
+        config.setdefault("trainer", {})["log_interval"] = log_interval
     if compile is not None:
         trainer_cfg["compile"] = compile
+        config.setdefault("trainer", {})["compile"] = compile
 
     # Create or reuse output directory under runs/
     if resume is not None:
@@ -164,6 +172,11 @@ def train(
         start_step = 0
 
     console.print(f"📂 Output run directory: [cyan]{out_dir}[/cyan]")
+    os.makedirs(out_dir, exist_ok=True)
+    config_save_path = os.path.join(out_dir, "config.yaml")
+    with open(config_save_path, "w", encoding="utf-8") as f:
+        yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+    console.print(f"📄 Saved configuration to [cyan]{config_save_path}[/cyan]")
 
     # Setup callbacks
     log_interval = trainer_cfg.pop("log_interval", 10)
@@ -194,6 +207,7 @@ def train(
         callbacks=callbacks,
         device=device,
         compile=compile_val,
+        config=config,
         **trainer_cfg
     )
     if start_step > 0:

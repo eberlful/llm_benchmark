@@ -1,6 +1,7 @@
 import os
 import time
 import math
+import yaml
 from contextlib import nullcontext
 from typing import List, Dict, Any, Optional, Tuple
 import torch
@@ -36,8 +37,10 @@ class Trainer:
         out_dir: str = 'out',
         callbacks: Optional[List[Callback]] = None,
         compile: bool = True,
+        config: Optional[Dict[str, Any]] = None,
     ):
         self.compile = compile
+        self.config = config
         self.device = device
         self.model = model.to(self.device)
         if self.compile:
@@ -79,6 +82,7 @@ class Trainer:
             'train_loss': 0.0,
             'val_loss': 0.0,
             'out_dir': self.out_dir,
+            'config': self.config,
         }
 
     def _trigger_callbacks(self, hook_name: str) -> None:
@@ -124,6 +128,11 @@ class Trainer:
     def train(self) -> None:
         self._trigger_callbacks('on_train_start')
         os.makedirs(self.out_dir, exist_ok=True)
+        if self.config and isinstance(self.config, dict):
+            config_file_path = os.path.join(self.out_dir, "config.yaml")
+            if not os.path.exists(config_file_path):
+                with open(config_file_path, "w", encoding="utf-8") as f:
+                    yaml.dump(self.config, f, default_flow_style=False, sort_keys=False)
 
         # Prepare the first batch
         X, Y = self.dataset.get_batch('train', self.batch_size, self.block_size, self.device)
