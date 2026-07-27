@@ -36,6 +36,7 @@ class CheckpointCallback(Callback):
         model = run_state['model']
         optimizer = run_state['optimizer']
         raw_model = model.module if hasattr(model, 'module') else model
+        raw_model = getattr(raw_model, '_orig_mod', raw_model)
         config = getattr(raw_model, 'config', None)
         steps = run_state['iter_num']
 

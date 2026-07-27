@@ -20,6 +20,7 @@ optimizer:
     - 0.95
 
 trainer:
+  compile: true          # Compile model using PyTorch 2.0 (torch.compile)
   max_iters: 5000        # Total training steps
   batch_size: 32         # Batch size per step
   block_size: 256        # Context length to train on (must match model block_size)

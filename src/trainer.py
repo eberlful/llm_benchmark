@@ -35,9 +35,14 @@ class Trainer:
         eval_iters: int = 200,
         out_dir: str = 'out',
         callbacks: Optional[List[Callback]] = None,
+        compile: bool = True,
     ):
+        self.compile = compile
         self.device = device
         self.model = model.to(self.device)
+        if self.compile:
+            print("compiling the model... (takes a minute or two)")
+            self.model = torch.compile(self.model)
         self.dataset = dataset
         self.optimizer = optimizer
         self.max_iters = max_iters
@@ -171,6 +176,7 @@ class Trainer:
             if local_iter_num >= 5:
                 # Unwrap model to get mfu estimation if method exists
                 raw_model = self.model.module if hasattr(self.model, 'module') else self.model
+                raw_model = getattr(raw_model, '_orig_mod', raw_model)
                 if hasattr(raw_model, 'estimate_mfu'):
                     # In old/train.py, the first arg is batch_size * gradient_accumulation_steps
                     mfu = raw_model.estimate_mfu(self.batch_size * self.gradient_accumulation_steps, dt)

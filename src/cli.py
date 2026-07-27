@@ -63,6 +63,7 @@ def train(
     eval_interval: Optional[int] = typer.Option(None, "--eval-interval", "-ei", help="Override evaluation interval."),
     eval_iters: Optional[int] = typer.Option(None, "--eval-iters", help="Override evaluation iterations."),
     log_interval: Optional[int] = typer.Option(None, "--log-interval", help="Override logging interval."),
+    compile: Optional[bool] = typer.Option(None, "--compile/--no-compile", help="Compile model using PyTorch 2.0 (torch.compile)."),
     resume: Optional[Path] = typer.Option(None, "--resume", "-r", help="Path to checkpoint file or run directory to resume training from."),
 ):
     """
@@ -126,6 +127,8 @@ def train(
         trainer_cfg["eval_iters"] = eval_iters
     if log_interval is not None:
         trainer_cfg["log_interval"] = log_interval
+    if compile is not None:
+        trainer_cfg["compile"] = compile
 
     # Create or reuse output directory under runs/
     if resume is not None:
@@ -177,6 +180,7 @@ def train(
     max_iters = trainer_cfg.pop("max_iters", 2000)
     batch_size_val = trainer_cfg.pop("batch_size", 12)
     block_size = trainer_cfg.pop("block_size", 1024)
+    compile_val = trainer_cfg.pop("compile", True)
 
     trainer = Trainer(
         model=model,
@@ -189,6 +193,7 @@ def train(
         out_dir=out_dir,
         callbacks=callbacks,
         device=device,
+        compile=compile_val,
         **trainer_cfg
     )
     if start_step > 0:

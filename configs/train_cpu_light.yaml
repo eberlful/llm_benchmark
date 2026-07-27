@@ -21,6 +21,7 @@ optimizer:
     - 0.95
 
 trainer:
+  compile: false
   max_iters: 50          # 50 steps complete in seconds on CPU
   batch_size: 8          # Small batch size for low memory & CPU usage
   block_size: 64

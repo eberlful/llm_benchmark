@@ -195,3 +195,19 @@ def test_cli_flow_pam(tmp_path, monkeypatch):
     assert "Resuming training from checkpoint" in result_resume.stdout
 
 
+def test_cli_compile_flag(dummy_dataset_and_config, tmp_path, monkeypatch):
+    config_file, _ = dummy_dataset_and_config
+    monkeypatch.chdir(tmp_path)
+
+    # Run train with --no-compile
+    result_no_compile = runner.invoke(app, ["train", str(config_file), "--steps", "1", "--no-compile"])
+    assert result_no_compile.exit_code == 0, f"--no-compile failed: {result_no_compile.stdout}"
+    assert "compiling the model" not in result_no_compile.stdout
+
+    # Run train with --compile
+    result_compile = runner.invoke(app, ["train", str(config_file), "--steps", "1", "--compile"])
+    assert result_compile.exit_code == 0, f"--compile failed: {result_compile.stdout}"
+    assert "compiling the model" in result_compile.stdout
+
+
+

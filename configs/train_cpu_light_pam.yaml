@@ -20,6 +20,7 @@ optimizer:
     - 0.95
 
 trainer:
+  compile: false
   max_iters: 50
   batch_size: 8
   block_size: 64
