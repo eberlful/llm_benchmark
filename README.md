@@ -48,6 +48,10 @@ python main.py train configs/train_shakespeare.yaml --learning-rate 6e-4 --steps
 
 # Train Phase-Associative Memory (PAM) model:
 python main.py train configs/train_shakespeare_pam.yaml --learning-rate 6e-4 --steps 5000 --batch-size 32
+
+# Lightweight CPU training (ideal for Google Colab CPU instances):
+python main.py train configs/train_cpu_light.yaml --steps 50
+python main.py train configs/train_cpu_light_pam.yaml --steps 50
 ```
 *Outputs are saved under `runs/run_YYYYMMDD_HHMMSS/` containing step-named checkpoints (`ckpt_step_X_val_loss_Y.pt`), `last_ckpt.pt`, `best_ckpt.pt`, TensorBoard event files, and logs.*
 
@@ -77,17 +81,20 @@ tensorboard --logdir_spec=GPT:runs/run_xxx,PAM:runs/run_yyy
 ### ☁️ 5. Syncing Runs with Google Drive & Resuming (Google Colab / Cloud)
 Sync training runs to Google Drive and continue training sessions across multiple days:
 ```bash
-# Upload the latest training run to Google Drive:
+# 1. Fast CPU test training run (ideal for Google Colab CPU instances):
+python main.py train configs/train_cpu_light.yaml --steps 50
+
+# 2. Upload the latest training run to Google Drive:
 python main.py sync upload --latest
 
-# Download runs from Google Drive to local storage:
-python main.py sync download --latest
-
-# List local vs. Google Drive training runs status:
+# 3. List local vs. Google Drive training runs status:
 python main.py sync list
 
-# Resume training from a downloaded run directory:
-python main.py train configs/train_shakespeare.yaml --resume runs/run_20260727_103000 --steps 10000
+# 4. Download runs from Google Drive to local storage (in a new session):
+python main.py sync download --latest
+
+# 5. Resume training from a downloaded run directory:
+python main.py train configs/train_cpu_light.yaml --resume runs/run_xxx --steps 100
 ```
 *You can also invoke `python scripts/sync_runs.py upload|download|list` directly.*
 

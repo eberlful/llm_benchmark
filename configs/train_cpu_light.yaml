@@ -1,0 +1,35 @@
+# Lightweight Configuration for Fast CPU Training & Testing (e.g. Google Colab CPU)
+
+model:
+  type: "gpt"
+  block_size: 64         # Sequence length
+  vocab_size: 50304      # GPT-2 vocab size
+  n_layer: 2             # 2 layers for ultra-fast CPU iterations
+  n_head: 2              # 2 attention heads
+  n_embd: 64             # Hidden dimension size
+  dropout: 0.0
+  bias: false
+
+dataset:
+  data_dir: "data/shakespeare"
+
+optimizer:
+  weight_decay: 0.01
+  learning_rate: 1e-3
+  betas:
+    - 0.9
+    - 0.95
+
+trainer:
+  max_iters: 50          # 50 steps complete in seconds on CPU
+  batch_size: 8          # Small batch size for low memory & CPU usage
+  block_size: 64
+  device: "cpu"
+  dtype: "float32"
+  decay_lr: false
+  warmup_iters: 5
+  grad_clip: 1.0
+  gradient_accumulation_steps: 1
+  eval_interval: 10      # Evaluate every 10 steps
+  eval_iters: 5          # 5 evaluation batches
+  log_interval: 5        # Log every 5 steps
