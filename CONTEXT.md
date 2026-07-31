@@ -44,4 +44,31 @@ _Avoid_: FeedForward, MLP
 Representing complex numbers $z = a + ib$ using a float tensor with a final dimension of size 2 (e.g., shape `[..., d, 2]`).
 _Avoid_: Complex dtype, Real projection
 
+**Extended LSTM (xLSTM)**:
+A sequence modeling architecture built from residual stacks of mLSTM and sLSTM blocks featuring exponential gating and stabilized state updates.
+_Avoid_: Modern LSTM, Custom Recurrent Net
+
+**Matrix LSTM (mLSTM)**:
+An xLSTM block variant with a matrix memory state updated via a key-value covariance rule, enabling fully parallel causal training and step-by-step recurrent inference.
+_Avoid_: Matrix Recurrent Cell, Linear Attention Layer
+
+**Scalar LSTM (sLSTM)**:
+An xLSTM block variant with scalar memory cells, exponential gating, numerical max-stabilization state tracking, and multi-head memory mixing.
+_Avoid_: Standard LSTM, Stabilized Recurrent Block
+
+**Parallel Causal Formulation**:
+A sequence-level vectorized forward pass for mLSTM training that computes matrix memory outputs across sequence length $T$ using lower-triangular causal decay matrices and log-sum-exp stabilization.
+_Avoid_: Recurrent Loop Training, Unrolled Step Training
+
+**Recurrent Step Formulation**:
+A token-by-token state update pass for xLSTM inference (in `generate`), maintaining state vectors/matrices across time steps $t$.
+_Avoid_: Full Sequence Re-computation, KV-Cache Attention
+
+**Block Pattern Specification**:
+A configurable ordering rule defining the sequence of mLSTM and sLSTM residual blocks across model layers (e.g. `"mlstm"`, `"slstm"`, `"7:1"`, or an explicit list `["mlstm", "mlstm", "slstm"]`).
+_Avoid_: Layer Type Parameter, Static Architecture Layout
+
+
+
+
 
