@@ -203,3 +203,23 @@ def test_xlstm_model_generate():
     assert (generated[:, :8] == idx).all()
 
 
+def test_xlstm_create_from_dict():
+    from src.cli import create_model_from_dict
+    from src.models.xlstm import xLSTMModel
+
+    cfg_dict = {
+        "type": "xlstm",
+        "n_layer": 2,
+        "n_head": 2,
+        "n_embd": 64,
+        "block_size": 32,
+        "vocab_size": 100,
+        "block_type_pattern": "7:1",
+    }
+    model = create_model_from_dict(cfg_dict)
+    assert isinstance(model, xLSTMModel)
+    assert model.config.num_heads == 2
+    assert model.config.n_embd == 64
+
+
+
