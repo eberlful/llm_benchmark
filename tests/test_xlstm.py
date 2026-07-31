@@ -70,3 +70,71 @@ def test_slstm_block_forward():
     out = block(x)
 
     assert out.shape == (2, 16, 64)
+
+
+def test_xlstm_model_forward_and_loss():
+    from src.models.xlstm import xLSTMModel
+
+    config = xLSTMConfig(
+        vocab_size=100,
+        n_embd=64,
+        n_layer=2,
+        block_size=32,
+        num_heads=4,
+        block_type_pattern="7:1",
+    )
+    model = xLSTMModel(config)
+
+    idx = torch.randint(0, 100, (2, 16))
+    targets = torch.randint(0, 100, (2, 16))
+
+    # Test forward pass with targets
+    logits, loss = model(idx, targets)
+    assert logits.shape == (2, 16, 100)
+    assert loss is not None
+    assert loss.item() > 0
+
+    # Test backward pass
+    loss.backward()
+    for name, param in model.named_parameters():
+        if param.requires_grad:
+            assert param.grad is not None, f"Parameter {name} has no gradient"
+
+    # Test forward pass without targets (inference)
+    model.zero_grad()
+    logits_inf, loss_inf = model(idx)
+    assert logits_inf.shape == (2, 1, 100)
+    assert loss_inf is None
+
+
+def test_xlstm_model_without_pos_emb():
+    from src.models.xlstm import xLSTMModel
+
+    config = xLSTMConfig(
+        vocab_size=100,
+        n_embd=64,
+        n_layer=2,
+        block_size=32,
+        num_heads=4,
+        use_pos_emb=False,
+    )
+    model = xLSTMModel(config)
+    idx = torch.randint(0, 100, (2, 16))
+    logits, loss = model(idx, idx)
+    assert logits.shape == (2, 16, 100)
+
+
+def test_xlstm_model_configure_optimizers():
+    from src.models.xlstm import xLSTMModel
+
+    config = xLSTMConfig(vocab_size=100, n_embd=64, n_layer=2, block_size=32)
+    model = xLSTMModel(config)
+
+    optimizer = model.configure_optimizers(
+        weight_decay=0.1, learning_rate=1e-3, betas=(0.9, 0.95), device_type="cpu"
+    )
+    assert isinstance(optimizer, torch.optim.AdamW)
+    assert len(optimizer.param_groups) == 2
+    assert optimizer.param_groups[0]["weight_decay"] == 0.1
+    assert optimizer.param_groups[1]["weight_decay"] == 0.0
+
