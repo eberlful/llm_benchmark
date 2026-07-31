@@ -1,0 +1,36 @@
+# Lightweight Configuration for Fast CPU Training of xLSTM Model
+
+model:
+  type: "xlstm"
+  block_size: 64         # Sequence length
+  vocab_size: 50304      # Vocab size
+  n_layer: 2             # 2 xLSTM layers
+  num_heads: 2           # 2 heads
+  n_embd: 64             # Model dimension
+  block_type_pattern: "7:1"
+  dropout: 0.0
+
+dataset:
+  data_dir: "data/shakespeare"
+
+optimizer:
+  weight_decay: 0.01
+  learning_rate: 1e-3
+  betas:
+    - 0.9
+    - 0.95
+
+trainer:
+  compile: false
+  max_iters: 50
+  batch_size: 8
+  block_size: 64
+  device: "cpu"
+  dtype: "float32"
+  decay_lr: false
+  warmup_iters: 5
+  grad_clip: 1.0
+  gradient_accumulation_steps: 1
+  eval_interval: 10
+  eval_iters: 5
+  log_interval: 5

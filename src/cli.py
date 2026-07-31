@@ -10,6 +10,7 @@ from rich.console import Console
 
 from src.models.gpt import GPTModel, GPTConfig
 from src.models.pam import PAMConfig, PAMModel
+from src.models.xlstm import xLSTMConfig, xLSTMModel
 from src.datasets.shakespeare import ShakespeareDataset
 from src.trainer import Trainer
 from src.callbacks.terminal_logger import TerminalLogger
@@ -24,11 +25,14 @@ console = Console()
 
 def instantiate_model(config) -> torch.nn.Module:
     """
-    Instantiate model from config object (either PAMConfig or GPTConfig).
+    Instantiate model from config object (PAMConfig, xLSTMConfig, or GPTConfig).
     """
     if isinstance(config, PAMConfig):
         console.print(f"🤖 Instantiating PAM model architecture (n_layer={config.n_layer}, n_head={config.n_head}, dim={config.dim})...")
         return PAMModel(config)
+    elif isinstance(config, xLSTMConfig):
+        console.print(f"🤖 Instantiating xLSTM model architecture (n_layer={config.n_layer}, num_heads={config.num_heads}, n_embd={config.n_embd}, pattern={config.block_type_pattern})...")
+        return xLSTMModel(config)
     else:
         console.print(f"🤖 Instantiating GPT model architecture (n_layer={config.n_layer}, n_head={config.n_head}, n_embd={config.n_embd})...")
         return GPTModel(config)
@@ -41,7 +45,7 @@ def create_model_from_dict(model_cfg: dict) -> torch.nn.Module:
     model_cfg = model_cfg.copy()
     if "dropout" in model_cfg:
         model_cfg["dropout"] = float(model_cfg["dropout"])
-    
+
     model_type = model_cfg.pop("type", "gpt")
     if model_type == "pam":
         if "block_size" in model_cfg:
@@ -49,9 +53,13 @@ def create_model_from_dict(model_cfg: dict) -> torch.nn.Module:
         if "n_embd" in model_cfg:
             model_cfg["dim"] = model_cfg["n_embd"]
         config = PAMConfig(**model_cfg)
+    elif model_type == "xlstm":
+        if "n_head" in model_cfg and "num_heads" not in model_cfg:
+            model_cfg["num_heads"] = model_cfg.pop("n_head")
+        config = xLSTMConfig(**model_cfg)
     else:
         config = GPTConfig(**model_cfg)
-        
+
     return instantiate_model(config)
 
 @app.command()

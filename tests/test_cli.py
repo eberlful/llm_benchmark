@@ -221,4 +221,24 @@ def test_cli_compile_flag(dummy_dataset_and_config, tmp_path, monkeypatch):
     assert "compiling the model" in result_compile.stdout
 
 
+def test_cli_create_xlstm_model():
+    from src.cli import create_model_from_dict
+    from src.models.xlstm import xLSTMModel
+
+    cfg = {
+        "type": "xlstm",
+        "n_layer": 2,
+        "n_head": 2,
+        "n_embd": 32,
+        "block_size": 16,
+        "vocab_size": 100,
+        "block_type_pattern": "7:1",
+    }
+    model = create_model_from_dict(cfg)
+    assert isinstance(model, xLSTMModel)
+    assert model.config.num_heads == 2
+    assert model.config.n_embd == 32
+
+
+
 
