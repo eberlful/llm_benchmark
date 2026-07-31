@@ -494,19 +494,66 @@ class xLSTMModel(Model):
         max_new_tokens: int,
         temperature: float = 1.0,
         top_k: Optional[int] = None,
+        use_recurrent_step: bool = True,
     ) -> torch.Tensor:
         """
         Sequence completion starting from context sequence idx.
+        Supports both fast recurrent state step updates (O(1) per token)
+        and fallback standard sequence window generation.
         """
-        for _ in range(max_new_tokens):
-            idx_cond = idx if idx.size(1) <= self.config.block_size else idx[:, -self.config.block_size:]
-            logits, _ = self(idx_cond)
-            logits = logits[:, -1, :] / temperature
+        if not use_recurrent_step:
+            for _ in range(max_new_tokens):
+                idx_cond = idx if idx.size(1) <= self.config.block_size else idx[:, -self.config.block_size:]
+                logits, _ = self(idx_cond)
+                logits = logits[:, -1, :] / temperature
+                if top_k is not None:
+                    v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
+                    logits[logits < v[:, [-1]]] = -float('Inf')
+                probs = F.softmax(logits, dim=-1)
+                idx_next = torch.multinomial(probs, num_samples=1)
+                idx = torch.cat((idx, idx_next), dim=1)
+            return idx
+
+        # Recurrent state step-by-step update generator
+        device = idx.device
+        b, t = idx.size()
+        states = [None] * len(self.transformer.h)
+
+        # 1. Warm up states over context sequence idx
+        for step_idx in range(t):
+            token_t = idx[:, step_idx]
+            x = self.transformer.wte(token_t)
+            if self.transformer.wpe is not None:
+                pos_t = torch.tensor([step_idx], dtype=torch.long, device=device)
+                x = x + self.transformer.wpe(pos_t)
+            x = self.transformer.drop(x)
+            for i, block in enumerate(self.transformer.h):
+                x, states[i] = block.step(x, states[i])
+            x = self.transformer.ln_f(x)
+            logits_last = self.lm_head(x)
+
+        # 2. Generate max_new_tokens one token at a time
+        logits = logits_last
+        for step_offset in range(max_new_tokens):
+            logits = logits / temperature
             if top_k is not None:
                 v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
                 logits[logits < v[:, [-1]]] = -float('Inf')
             probs = F.softmax(logits, dim=-1)
             idx_next = torch.multinomial(probs, num_samples=1)
             idx = torch.cat((idx, idx_next), dim=1)
+
+            curr_pos = t + step_offset
+            token_next = idx_next.squeeze(-1)
+            x = self.transformer.wte(token_next)
+            if self.transformer.wpe is not None and curr_pos < self.config.block_size:
+                pos_t = torch.tensor([curr_pos], dtype=torch.long, device=device)
+                x = x + self.transformer.wpe(pos_t)
+            x = self.transformer.drop(x)
+            for i, block in enumerate(self.transformer.h):
+                x, states[i] = block.step(x, states[i])
+            x = self.transformer.ln_f(x)
+            logits = self.lm_head(x)
+
         return idx
 

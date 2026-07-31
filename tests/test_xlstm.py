@@ -138,3 +138,68 @@ def test_xlstm_model_configure_optimizers():
     assert optimizer.param_groups[0]["weight_decay"] == 0.1
     assert optimizer.param_groups[1]["weight_decay"] == 0.0
 
+
+def test_mlstm_block_step():
+    config = xLSTMConfig(n_embd=64, num_heads=4, block_size=32)
+    block = mLSTMBlock(config)
+    block.eval()
+
+    x_seq = torch.randn(2, 5, 64)
+    # Sequence forward
+    out_seq = block(x_seq)
+
+    # Step-by-step forward
+    state = None
+    step_outputs = []
+    for t in range(5):
+        x_t = x_seq[:, t, :]
+        out_t, state = block.step(x_t, state)
+        step_outputs.append(out_t.unsqueeze(1))
+
+    out_steps = torch.cat(step_outputs, dim=1)
+    assert out_steps.shape == (2, 5, 64)
+
+
+def test_slstm_block_step():
+    config = xLSTMConfig(n_embd=64, num_heads=4, block_size=32)
+    block = sLSTMBlock(config)
+    block.eval()
+
+    x_seq = torch.randn(2, 5, 64)
+    # Sequence forward
+    out_seq = block(x_seq)
+
+    # Step-by-step forward
+    state = None
+    step_outputs = []
+    for t in range(5):
+        x_t = x_seq[:, t, :]
+        out_t, state = block.step(x_t, state)
+        step_outputs.append(out_t.unsqueeze(1))
+
+    out_steps = torch.cat(step_outputs, dim=1)
+    assert out_steps.shape == (2, 5, 64)
+
+
+def test_xlstm_model_generate():
+    from src.models.xlstm import xLSTMModel
+
+    config = xLSTMConfig(
+        vocab_size=100,
+        n_embd=64,
+        n_layer=2,
+        block_size=32,
+        num_heads=4,
+        block_type_pattern="7:1",
+    )
+    model = xLSTMModel(config)
+    model.eval()
+
+    idx = torch.randint(0, 100, (2, 8))
+    max_new_tokens = 6
+
+    generated = model.generate(idx, max_new_tokens=max_new_tokens, temperature=1.0, top_k=10)
+    assert generated.shape == (2, 8 + max_new_tokens)
+    assert (generated[:, :8] == idx).all()
+
+
