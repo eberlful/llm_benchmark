@@ -227,3 +227,64 @@ def test_bdh_attention_strict_causal():
     diag_non_strict = torch.diagonal(scores_non_strict, dim1=-2, dim2=-1)
     assert torch.all(diag_non_strict != 0)
 
+
+def test_bdh_optimizer_parameter_groups():
+    config = BDHConfig(
+        block_size=16,
+        vocab_size=64,
+        n_layer=1,
+        n_head=2,
+        n_embd=16,
+        mlp_internal_dim_multiplier=4,
+        dropout=0.0,
+    )
+    model = BDHModel(config)
+    optimizer = model.configure_optimizers(
+        weight_decay=0.1, learning_rate=1e-3, betas=(0.9, 0.95), device_type="cpu"
+    )
+
+    decay_params = optimizer.param_groups[0]["params"]
+    no_decay_params = optimizer.param_groups[1]["params"]
+
+    # Retrieve parameter objects for expected 2D / 3D matrices
+    expected_decay_params = {
+        model.encoder,
+        model.decoder,
+        model.encoder_v,
+        model.lm_head,
+        model.embed.weight,
+    }
+
+    for p in expected_decay_params:
+        assert any(p is dp for dp in decay_params), f"Expected parameter {p} to be in decay group"
+
+    # Confirm all decay_params have dim >= 2 and weight_decay == 0.1
+    assert optimizer.param_groups[0]["weight_decay"] == 0.1
+    assert optimizer.param_groups[1]["weight_decay"] == 0.0
+
+
+def test_bdh_generate_context_cropping():
+    config = BDHConfig(
+        block_size=16,
+        vocab_size=64,
+        n_layer=1,
+        n_head=2,
+        n_embd=16,
+        mlp_internal_dim_multiplier=4,
+        dropout=0.0,
+    )
+    model = BDHModel(config)
+    model.eval()
+
+    batch_size = 2
+    # Prompt length 20 exceeds block_size=16
+    prompt_len = 20
+    idx = torch.randint(0, config.vocab_size, (batch_size, prompt_len))
+    max_new_tokens = 5
+
+    out = model.generate(idx, max_new_tokens=max_new_tokens, temperature=0.8, top_k=5)
+    assert out.shape == (batch_size, prompt_len + max_new_tokens)
+    # Check original prompt prefix is preserved
+    assert torch.equal(out[:, :prompt_len], idx)
+
+
