@@ -11,6 +11,7 @@ from rich.console import Console
 from src.models.gpt import GPTModel, GPTConfig
 from src.models.pam import PAMConfig, PAMModel
 from src.models.xlstm import xLSTMConfig, xLSTMModel
+from src.models.bdh import BDHConfig, BDHModel
 from src.datasets.shakespeare import ShakespeareDataset
 from src.trainer import Trainer
 from src.callbacks.terminal_logger import TerminalLogger
@@ -25,7 +26,7 @@ console = Console()
 
 def instantiate_model(config) -> torch.nn.Module:
     """
-    Instantiate model from config object (PAMConfig, xLSTMConfig, or GPTConfig).
+    Instantiate model from config object (PAMConfig, xLSTMConfig, BDHConfig, or GPTConfig).
     """
     if isinstance(config, PAMConfig):
         console.print(f"🤖 Instantiating PAM model architecture (n_layer={config.n_layer}, n_head={config.n_head}, dim={config.dim})...")
@@ -33,6 +34,9 @@ def instantiate_model(config) -> torch.nn.Module:
     elif isinstance(config, xLSTMConfig):
         console.print(f"🤖 Instantiating xLSTM model architecture (n_layer={config.n_layer}, num_heads={config.num_heads}, n_embd={config.n_embd}, pattern={config.block_type_pattern})...")
         return xLSTMModel(config)
+    elif isinstance(config, BDHConfig):
+        console.print(f"🤖 Instantiating BDH model architecture (n_layer={config.n_layer}, n_head={config.n_head}, n_embd={config.n_embd}, mlp_multiplier={config.mlp_internal_dim_multiplier})...")
+        return BDHModel(config)
     else:
         console.print(f"🤖 Instantiating GPT model architecture (n_layer={config.n_layer}, n_head={config.n_head}, n_embd={config.n_embd})...")
         return GPTModel(config)
@@ -57,10 +61,13 @@ def create_model_from_dict(model_cfg: dict) -> torch.nn.Module:
         if "n_head" in model_cfg and "num_heads" not in model_cfg:
             model_cfg["num_heads"] = model_cfg.pop("n_head")
         config = xLSTMConfig(**model_cfg)
+    elif model_type == "bdh":
+        config = BDHConfig(**model_cfg)
     else:
         config = GPTConfig(**model_cfg)
 
     return instantiate_model(config)
+
 
 @app.command()
 def train(

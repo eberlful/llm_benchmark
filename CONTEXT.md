@@ -68,6 +68,23 @@ _Avoid_: Full Sequence Re-computation, KV-Cache Attention
 A configurable ordering rule defining the sequence of mLSTM and sLSTM residual blocks across model layers (e.g. `"mlstm"`, `"slstm"`, `"7:1"`, or an explicit list `["mlstm", "mlstm", "slstm"]`).
 _Avoid_: Layer Type Parameter, Static Architecture Layout
 
+**Dragon Hatchling (BDH)**:
+A scale-free, biologically-inspired sequence modeling architecture based on local distributed graph dynamics across $n$ interacting neuron particles. It uses Hebbian synaptic plasticity, positive sparse activations, linear positional attention, and high-rank low-dimensional projection matrices.
+_Avoid_: Dense Transformer, Softmax LLM
+
+**BDH-GPU**:
+A tensor-friendly state-space formulation of the BDH graph model optimized for parallel GPU training. It maps particle graph dynamics to matrix products ($E, D_x, D_y$) and linear Rotary Position Embedding (RoPE) attention.
+_Avoid_: Graph Simulation Engine, Dense Multi-Head Attention
+
+**ReLU-lowrank**:
+A sparse feed-forward projection block in BDH combining encoder/decoder matrices ($D_x, D_y, E$) with non-negative ReLU activation thresholds, driving monosemantic sparse neural signal propagation.
+_Avoid_: Standard GELU MLP, Dense Feedforward Layer
+
+**Sparse Positive Activation**:
+An architectural property of BDH where activation vectors ($x_{t,l}, y_{t,l}$) are restricted to non-negative values via ReLU thresholds, resulting in dynamic activation sparsity (~5%) and interpretable monosemanticity.
+_Avoid_: Unbounded Activation, Unsparse Representation
+
+
 
 
 
