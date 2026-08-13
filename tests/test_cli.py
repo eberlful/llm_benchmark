@@ -240,5 +240,114 @@ def test_cli_create_xlstm_model():
     assert model.config.n_embd == 32
 
 
+def test_cli_create_bdh_model():
+    from src.cli import create_model_from_dict
+    from src.models.bdh import BDHModel
+
+    cfg = {
+        "type": "bdh",
+        "n_layer": 2,
+        "n_head": 2,
+        "n_embd": 32,
+        "mlp_internal_dim_multiplier": 8,
+        "block_size": 16,
+        "vocab_size": 100,
+        "strict_causal": True,
+    }
+    model = create_model_from_dict(cfg)
+    assert isinstance(model, BDHModel)
+    assert model.config.n_head == 2
+    assert model.config.n_embd == 32
+    assert model.config.strict_causal is True
+
+
+def test_cli_flow_bdh(tmp_path, monkeypatch):
+    from src.models.bdh import BDHModel
+
+    dataset_dir = tmp_path / "dummy_dataset"
+    dataset_dir.mkdir()
+
+    train_ids = np.random.randint(0, 1000, size=100, dtype=np.uint16)
+    val_ids = np.random.randint(0, 1000, size=50, dtype=np.uint16)
+    train_ids.tofile(dataset_dir / "train.bin")
+    val_ids.tofile(dataset_dir / "val.bin")
+
+    config = {
+        "model": {
+            "type": "bdh",
+            "block_size": 8,
+            "vocab_size": 50304,
+            "n_layer": 1,
+            "n_head": 1,
+            "n_embd": 8,
+            "mlp_internal_dim_multiplier": 4,
+            "dropout": 0.0,
+            "strict_causal": True,
+        },
+        "dataset": {"data_dir": str(dataset_dir)},
+        "optimizer": {
+            "weight_decay": 0.01,
+            "learning_rate": 1e-4,
+            "betas": [0.9, 0.99],
+        },
+        "trainer": {
+            "max_iters": 2,
+            "batch_size": 2,
+            "block_size": 4,
+            "learning_rate": 1e-4,
+            "device": "cpu",
+            "dtype": "float32",
+            "eval_interval": 2,
+            "eval_iters": 2,
+            "decay_lr": False,
+        },
+    }
+
+    config_file = tmp_path / "config_bdh.yaml"
+    with open(config_file, "w", encoding="utf-8") as f:
+        yaml.dump(config, f)
+
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(app, ["train", str(config_file), "--steps", "5", "--batch-size", "1"])
+    assert result.exit_code == 0, f"train command failed: {result.stdout}"
+
+    runs_dir = tmp_path / "runs"
+    assert runs_dir.exists()
+    runs = os.listdir(runs_dir)
+    assert len(runs) > 0
+
+    run_dir = runs_dir / runs[0]
+    step_ckpts = list(run_dir.glob("ckpt_step_*.pt"))
+    assert len(step_ckpts) == 1
+    best_ckpt = step_ckpts[0]
+
+    result_eval = runner.invoke(app, ["eval", "-c", str(best_ckpt), "-d", str(dataset_dir), "-b", "1", "-e", "2"])
+    assert result_eval.exit_code == 0, f"eval command failed: {result_eval.stdout}"
+
+    result_inf = runner.invoke(app, ["inference", "-c", str(best_ckpt), "-p", "Test prompt", "-n", "10"])
+    assert result_inf.exit_code == 0, f"inference command failed: {result_inf.stdout}"
+
+
+def test_cli_bdh_yaml_configs():
+    from src.cli import create_model_from_dict
+    from src.models.bdh import BDHModel
+
+    config_paths = [
+        "configs/train_cpu_light_bdh.yaml",
+        "configs/train_shakespeare_bdh.yaml",
+    ]
+
+    for p in config_paths:
+        assert os.path.exists(p), f"Config file missing: {p}"
+        with open(p, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f)
+        assert "model" in cfg
+        assert cfg["model"]["type"] == "bdh"
+        model = create_model_from_dict(cfg["model"])
+        assert isinstance(model, BDHModel)
+
+
+
 
 
